@@ -1,0 +1,531 @@
+# Cool Cars - optional carousel screen (base id 3). Lane racer.
+# Remove it: drop this file from your config's package "files:" list. Nothing else to edit.
+# Score storage (g_top / g_best) lives in the core config so reset/factory work without this screen.
+
+esphome:
+  on_boot:
+    - priority: 670
+      then:
+        - lambda: 'id(g_order)[id(g_order_n)++] = 3;'   # register after clock/player/timer
+
+globals:
+  # --- "Car" game (page_game screen, g_base==3) ---
+  - id: g_game_state   # 0=idle 1=playing 2=game over
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_car_lane     # car lane 0/1/2
+    type: int
+    restore_value: no
+    initial_value: '1'
+  - id: g_score
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_gspeed       # obstacle speed (px/tick)
+    type: int
+    restore_value: no
+    initial_value: '7'
+  - id: g_lives        # lives (3) - game v2
+    type: int
+    restore_value: no
+    initial_value: '3'
+  - id: g_inv          # invulnerability frames after a hit (anti double-hit)
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_o1_type      # car obstacle: 0=cop 1=muscle 2=sedan
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_o1_lane
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_o1_x         # X position (horizontal; they move left)
+    type: int
+    restore_value: no
+    initial_value: '200'
+  - id: g_o2_type      # obstacle: 0=cop 1=muscle 2=sedan 3=cone (all = crash)
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_o2_lane
+    type: int
+    restore_value: no
+    initial_value: '2'
+  - id: g_o2_x
+    type: int
+    restore_value: no
+    initial_value: '320'
+  - id: g_o3_type      # 3rd obstacle (more = harder)
+    type: int
+    restore_value: no
+    initial_value: '1'
+  - id: g_o3_lane
+    type: int
+    restore_value: no
+    initial_value: '1'
+  - id: g_o3_x
+    type: int
+    restore_value: no
+    initial_value: '460'
+  - id: g_cn_lane      # coin
+    type: int
+    restore_value: no
+    initial_value: '1'
+  - id: g_cn_x
+    type: int
+    restore_value: no
+    initial_value: '440'
+  - id: g_cn_on
+    type: bool
+    restore_value: no
+    initial_value: 'true'
+  - id: g_dash_off    # offset of the dashed lane lines (0..359)
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+script:
+  # --- "Car" game ---
+  - id: car_render   # car lane (Y) + score + lives (hearts) + message per state
+    then:
+      - lvgl.widget.update: { id: car, y: !lambda 'return (id(g_car_lane) - 1) * 55;' }
+      - lvgl.label.update:
+          id: lbl_game_score
+          text: !lambda 'char b[10]; snprintf(b, sizeof(b), "%d", id(g_score)); return std::string(b);'
+      - lvgl.label.update:
+          id: lbl_lives
+          text: !lambda |-
+            std::string h; for (int i = 0; i < id(g_lives); i++) h += "󰋑"; return h;
+  # Shows the correct game screen per state (0=menu 1=playing 2=game over 3=how-to 4=scores)
+  - id: game_screen
+    then:
+      # 1) hide everything
+      - lvgl.widget.hide: road_bg
+      - lvgl.widget.hide: logo_bg
+      - lvgl.widget.hide: car
+      - lvgl.widget.hide: obs1
+      - lvgl.widget.hide: obs2
+      - lvgl.widget.hide: obs3
+      - lvgl.widget.hide: coin
+      - lvgl.widget.hide: dl0
+      - lvgl.widget.hide: dl1
+      - lvgl.widget.hide: db0
+      - lvgl.widget.hide: db1
+      - lvgl.widget.hide: lbl_lives
+      - lvgl.widget.hide: lbl_game_score
+      - lvgl.widget.hide: hit_flash
+      - lvgl.widget.hide: btn_start
+      - lvgl.widget.hide: btn_howto
+      - lvgl.widget.hide: btn_scores
+      - lvgl.widget.hide: lbl_over
+      - lvgl.widget.hide: lbl_rec
+      - lvgl.widget.hide: btn_replay
+      - lvgl.widget.hide: btn_exit
+      - lvgl.widget.hide: lbl_howto_t
+      - lvgl.widget.hide: lbl_howto1
+      - lvgl.widget.hide: lbl_howto2
+      - lvgl.widget.hide: lbl_howto_b
+      - lvgl.widget.hide: img_howcoin
+      - lvgl.widget.hide: lbl_howto_l
+      - lvgl.widget.hide: lbl_howheart
+      - lvgl.widget.hide: badge1
+      - lvgl.widget.hide: badge2
+      - lvgl.widget.hide: badge3
+      - lvgl.widget.hide: badge4
+      - lvgl.widget.hide: lbl_scores_t
+      - lvgl.widget.hide: lbl_scores1
+      - lvgl.widget.hide: lbl_scores2
+      - lvgl.widget.hide: btn_back
+      # 2) show per state
+      - if:   # MENU
+          condition: { lambda: 'return id(g_game_state) == 0;' }
+          then:
+            - lvgl.widget.show: logo_bg
+            - lvgl.widget.show: btn_start
+            - lvgl.widget.show: btn_howto
+            - lvgl.widget.show: btn_scores
+      - if:   # GAME
+          condition: { lambda: 'return id(g_game_state) == 1;' }
+          then:
+            - lvgl.widget.show: road_bg
+            - lvgl.widget.show: car
+            - lvgl.widget.show: obs1
+            - lvgl.widget.show: obs2
+            - lvgl.widget.show: obs3
+            - lvgl.widget.show: coin
+            - lvgl.widget.show: dl0
+            - lvgl.widget.show: dl1
+            - lvgl.widget.show: db0
+            - lvgl.widget.show: db1
+            - lvgl.widget.show: lbl_lives
+            - lvgl.widget.show: lbl_game_score
+      - if:   # GAME OVER
+          condition: { lambda: 'return id(g_game_state) == 2;' }
+          then:
+            - lvgl.widget.show: logo_bg
+            - lvgl.widget.show: lbl_over
+            - lvgl.widget.show: lbl_rec
+            - lvgl.widget.show: btn_replay
+            - lvgl.widget.show: btn_exit
+            - lvgl.label.update: { id: lbl_over, text: !lambda 'char b[24]; snprintf(b,sizeof(b),"Score: %d", id(g_score)); return std::string(b);' }
+            - lvgl.label.update: { id: lbl_rec,  text: !lambda 'char b[24]; snprintf(b,sizeof(b),"Best: %d", id(g_best)); return std::string(b);' }
+      - if:   # HOW TO PLAY
+          condition: { lambda: 'return id(g_game_state) == 3;' }
+          then:
+            - lvgl.widget.show: lbl_howto_t
+            - lvgl.widget.show: lbl_howto1
+            - lvgl.widget.show: lbl_howto2
+            - lvgl.widget.show: lbl_howto_b
+            - lvgl.widget.show: img_howcoin
+            - lvgl.widget.show: lbl_howto_l
+            - lvgl.widget.show: lbl_howheart
+            - lvgl.widget.show: badge1
+            - lvgl.widget.show: badge2
+            - lvgl.widget.show: badge3
+            - lvgl.widget.show: badge4
+            - lvgl.widget.show: btn_back
+      - if:   # SCORES (top 10)
+          condition: { lambda: 'return id(g_game_state) == 4;' }
+          then:
+            - lvgl.widget.show: lbl_scores_t
+            - lvgl.widget.show: lbl_scores1
+            - lvgl.widget.show: lbl_scores2
+            - lvgl.widget.show: btn_back
+            - lvgl.label.update:
+                id: lbl_scores1
+                text: !lambda |-
+                  std::string s; char b[24];
+                  for (int i = 0; i < 5; i++) { if(i) s += "\n"; if(id(g_top)[i]>0){ snprintf(b,sizeof(b),"%d.  %d",i+1,id(g_top)[i]); } else { snprintf(b,sizeof(b),"%d.  -",i+1); } s += b; }
+                  return s;
+            - lvgl.label.update:
+                id: lbl_scores2
+                text: !lambda |-
+                  std::string s; char b[24];
+                  for (int i = 5; i < 10; i++) { if(i>5) s += "\n"; if(id(g_top)[i]>0){ snprintf(b,sizeof(b),"%d.  %d",i+1,id(g_top)[i]); } else { snprintf(b,sizeof(b),"%d.  -",i+1); } s += b; }
+                  return s;
+  - id: score_render   # score with "$" (refreshed on change, not every tick)
+    then:
+      - lvgl.label.update:
+          id: lbl_game_score
+          text: !lambda 'char b[10]; snprintf(b, sizeof(b), "%d", id(g_score)); return std::string(b);'
+  - id: obs1_spawn   # obstacle: 0=cop 1=muscle 2=sedan 3=cone
+    then:
+      - lambda: |-
+          id(g_o1_type) = esp_random() % 4;
+          id(g_o1_lane) = esp_random() % 3;
+          id(g_o1_x) = 200 + (int)(esp_random() % 120);
+      - if: { condition: { lambda: 'return id(g_o1_type)==0;' }, then: [lvgl.image.update: { id: obs1, src: img_cop }] }
+      - if: { condition: { lambda: 'return id(g_o1_type)==1;' }, then: [lvgl.image.update: { id: obs1, src: img_mus }] }
+      - if: { condition: { lambda: 'return id(g_o1_type)==2;' }, then: [lvgl.image.update: { id: obs1, src: img_sed }] }
+      - if: { condition: { lambda: 'return id(g_o1_type)==3;' }, then: [lvgl.image.update: { id: obs1, src: img_cone }] }
+      - lvgl.widget.update: { id: obs1, x: !lambda 'return id(g_o1_x);', y: !lambda 'return (id(g_o1_lane)-1)*55;' }
+  - id: obs2_spawn
+    then:
+      - lambda: |-
+          id(g_o2_type) = esp_random() % 4;
+          id(g_o2_lane) = esp_random() % 3;
+          id(g_o2_x) = 260 + (int)(esp_random() % 140);
+      - if: { condition: { lambda: 'return id(g_o2_type)==0;' }, then: [lvgl.image.update: { id: obs2, src: img_cop }] }
+      - if: { condition: { lambda: 'return id(g_o2_type)==1;' }, then: [lvgl.image.update: { id: obs2, src: img_mus }] }
+      - if: { condition: { lambda: 'return id(g_o2_type)==2;' }, then: [lvgl.image.update: { id: obs2, src: img_sed }] }
+      - if: { condition: { lambda: 'return id(g_o2_type)==3;' }, then: [lvgl.image.update: { id: obs2, src: img_cone }] }
+      - lvgl.widget.update: { id: obs2, x: !lambda 'return id(g_o2_x);', y: !lambda 'return (id(g_o2_lane)-1)*55;' }
+  - id: obs3_spawn
+    then:
+      - lambda: |-
+          id(g_o3_type) = esp_random() % 4;
+          id(g_o3_lane) = esp_random() % 3;
+          id(g_o3_x) = 340 + (int)(esp_random() % 160);
+      - if: { condition: { lambda: 'return id(g_o3_type)==0;' }, then: [lvgl.image.update: { id: obs3, src: img_cop }] }
+      - if: { condition: { lambda: 'return id(g_o3_type)==1;' }, then: [lvgl.image.update: { id: obs3, src: img_mus }] }
+      - if: { condition: { lambda: 'return id(g_o3_type)==2;' }, then: [lvgl.image.update: { id: obs3, src: img_sed }] }
+      - if: { condition: { lambda: 'return id(g_o3_type)==3;' }, then: [lvgl.image.update: { id: obs3, src: img_cone }] }
+      - lvgl.widget.update: { id: obs3, x: !lambda 'return id(g_o3_x);', y: !lambda 'return (id(g_o3_lane)-1)*55;' }
+  - id: coin_spawn
+    then:
+      - lambda: |-
+          id(g_cn_lane) = esp_random() % 3;
+          id(g_cn_x) = 220 + (int)(esp_random() % 200);
+          id(g_cn_on) = true;
+      - lvgl.widget.show: coin
+      - lvgl.widget.update: { id: coin, x: !lambda 'return id(g_cn_x);', y: !lambda 'return (id(g_cn_lane)-1)*55;' }
+  - id: game_start
+    then:
+      - lambda: |-
+          id(g_game_state) = 1; id(g_score) = 0; id(g_gspeed) = 11;
+          id(g_car_lane) = 1; id(g_lives) = 3; id(g_inv) = 0;
+          id(g_knob_capture) = true; id(g_knob_delta) = 0;
+      - lvgl.widget.update: { id: car, x: -120 }
+      - script.execute: obs1_spawn
+      - script.execute: obs2_spawn
+      - script.execute: obs3_spawn
+      - script.execute: coin_spawn
+      - script.execute: score_render
+      - script.execute: game_screen
+      - script.execute: car_render
+  - id: lose_life    # losing a life: red flash + invulnerability (blinking), 0 lives -> game over
+    then:
+      - lambda: 'id(g_lives)--; id(g_inv) = 14;'
+      - lvgl.widget.show: hit_flash
+      - if:
+          condition: { lambda: 'return id(g_lives) <= 0;' }
+          then: [ script.execute: game_crash ]
+          else: [ script.execute: car_render ]
+  - id: game_crash   # GAME OVER (0 lives) - save score + insert into top 10
+    then:
+      - lambda: |-
+          id(g_game_state) = 2; id(g_knob_capture) = false;
+          int s = id(g_score);
+          if (s > id(g_best)) id(g_best) = s;
+          for (int i = 0; i < 10; i++) {
+            if (s > id(g_top)[i]) {
+              for (int j = 9; j > i; j--) id(g_top)[j] = id(g_top)[j-1];
+              id(g_top)[i] = s;
+              break;
+            }
+          }
+      - script.execute: game_screen
+
+interval:
+  # nav: show this screen when it is selected in the carousel
+  - interval: 50ms
+    then:
+      - if:
+          condition: { lambda: 'return id(g_nav_req) && id(g_base)==3;' }
+          then:
+            - lambda: 'id(g_nav_req) = false; id(g_game_state) = 0;'
+            - if: { condition: { lambda: 'return id(g_nav_anim)==0;' }, then: [lvgl.page.show: { id: page_game, animation: move_left,   time: 250ms }] }
+            - if: { condition: { lambda: 'return id(g_nav_anim)==1;' }, then: [lvgl.page.show: { id: page_game, animation: move_right,  time: 250ms }] }
+            - if: { condition: { lambda: 'return id(g_nav_anim)==2;' }, then: [lvgl.page.show: { id: page_game, animation: move_top,    time: 250ms }] }
+            - if: { condition: { lambda: 'return id(g_nav_anim)==3;' }, then: [lvgl.page.show: { id: page_game, animation: move_bottom, time: 250ms }] }
+            - script.execute: game_screen
+  # "Car" game (driving right) - tick only on the game screen during play
+  - interval: 80ms
+    then:
+      - if:
+          condition:
+            lambda: 'return id(g_base) == 3 && id(g_game_state) == 1;'
+          then:
+            - if:
+                condition: { lambda: 'return id(g_knob_capture) && id(g_knob_delta) != 0;' }
+                then:
+                  - lambda: 'id(g_car_lane) += id(g_knob_delta); if (id(g_car_lane) < 0) id(g_car_lane) = 0; if (id(g_car_lane) > 2) id(g_car_lane) = 2; id(g_knob_delta) = 0;'
+                  - script.execute: car_render
+            - lambda: |-
+                id(g_o1_x) -= id(g_gspeed);
+                id(g_o2_x) -= id(g_gspeed);
+                id(g_o3_x) -= id(g_gspeed);
+                id(g_cn_x) -= id(g_gspeed);
+                if (id(g_inv) > 0) id(g_inv)--;
+                int sp = 11 + id(g_score) / 7; if (sp > 26) sp = 26; id(g_gspeed) = sp;   // faster
+                id(g_dash_off) = (id(g_dash_off) + id(g_gspeed)) % 360;
+            # Recycle obstacles past the left edge (+ a point for dodging, score updated only on change)
+            - if:
+                condition: { lambda: 'return id(g_o1_x) < -200;' }
+                then: [ lambda: 'id(g_score)++;', script.execute: obs1_spawn, script.execute: score_render ]
+            - if:
+                condition: { lambda: 'return id(g_o2_x) < -200;' }
+                then: [ lambda: 'id(g_score)++;', script.execute: obs2_spawn, script.execute: score_render ]
+            - if:
+                condition: { lambda: 'return id(g_o3_x) < -200;' }
+                then: [ lambda: 'id(g_score)++;', script.execute: obs3_spawn, script.execute: score_render ]
+            - if:
+                condition: { lambda: 'return id(g_cn_x) < -200;' }
+                then: [ script.execute: coin_spawn ]
+            # Collisions (cars + cone = lose a life)
+            - if:
+                condition: { lambda: 'return id(g_inv) <= 0 && abs(id(g_o1_x) - (-120)) < 30 && id(g_o1_lane) == id(g_car_lane);' }
+                then: [ script.execute: lose_life ]
+            - if:
+                condition: { lambda: 'return id(g_inv) <= 0 && abs(id(g_o2_x) - (-120)) < 30 && id(g_o2_lane) == id(g_car_lane);' }
+                then: [ script.execute: lose_life ]
+            - if:
+                condition: { lambda: 'return id(g_inv) <= 0 && abs(id(g_o3_x) - (-120)) < 30 && id(g_o3_lane) == id(g_car_lane);' }
+                then: [ script.execute: lose_life ]
+            # Coin pickup
+            - if:
+                condition: { lambda: 'return id(g_cn_on) && abs(id(g_cn_x) - (-120)) < 28 && id(g_cn_lane) == id(g_car_lane);' }
+                then:
+                  - lambda: 'id(g_score) += 5; id(g_cn_on) = false;'
+                  - lvgl.widget.hide: coin
+                  - script.execute: coin_spawn
+                  - script.execute: score_render
+            # Hit effect: red flash fades after a moment, car blinks during invulnerability
+            - if:
+                condition: { lambda: 'return id(g_inv) > 0;' }
+                then:
+                  - lvgl.widget.update: { id: car, hidden: !lambda 'return (id(g_inv) % 4) >= 2;' }
+                  - lvgl.widget.update: { id: hit_flash, hidden: !lambda 'return id(g_inv) < 11;' }
+            # Update positions + scrolling dashes (4)
+            - lvgl.widget.update: { id: obs1, x: !lambda 'return id(g_o1_x);' }
+            - lvgl.widget.update: { id: obs2, x: !lambda 'return id(g_o2_x);' }
+            - lvgl.widget.update: { id: obs3, x: !lambda 'return id(g_o3_x);' }
+            - lvgl.widget.update: { id: coin, x: !lambda 'return id(g_cn_x);' }
+            - lvgl.widget.update: { id: dl0, x: !lambda 'return ((0*180 - id(g_dash_off))%360+360)%360 - 180;' }
+            - lvgl.widget.update: { id: dl1, x: !lambda 'return ((1*180 - id(g_dash_off))%360+360)%360 - 180;' }
+            - lvgl.widget.update: { id: db0, x: !lambda 'return ((0*180 - id(g_dash_off))%360+360)%360 - 180;' }
+            - lvgl.widget.update: { id: db1, x: !lambda 'return ((1*180 - id(g_dash_off))%360+360)%360 - 180;' }
+
+image:
+  - id: img_road2
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/main/assets/sprites/cool-cars/road2.png"
+    type: RGB565
+  - id: img_p
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/main/assets/sprites/cool-cars/pcar2.png"
+    type: RGB565
+    transparency: alpha_channel
+  - id: img_cop
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/main/assets/sprites/cool-cars/ocop2.png"
+    type: RGB565
+    transparency: alpha_channel
+  - id: img_mus
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/main/assets/sprites/cool-cars/omus2.png"
+    type: RGB565
+    transparency: alpha_channel
+  - id: img_sed
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/main/assets/sprites/cool-cars/osed2.png"
+    type: RGB565
+    transparency: alpha_channel
+  - id: img_coin
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/main/assets/sprites/cool-cars/coin.png"
+    type: RGB565
+    transparency: alpha_channel
+  - id: img_cone
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/main/assets/sprites/cool-cars/cone.png"
+    type: RGB565
+    transparency: alpha_channel
+  - id: img_logo
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/main/assets/sprites/cool-cars/logo.png"
+    type: RGB565
+
+lvgl:
+  pages:
+    # --- "Car" GAME page (after the player): 3 lanes, car at the bottom, obstacles from the top ---
+    - id: page_game
+      bg_color: 0x0D1323
+      scrollbar_mode: "off"
+      scrollable: false
+      widgets:
+        - image: { id: road_bg, align: CENTER, x: 0, y: 0, src: img_road2, hidden: true }   # road (only in-game)
+        # Dashed lane lines - moving (scrolled in the interval = sense of driving)
+        - obj: { id: dl0, align: CENTER, x: 0, y: -28, width: 26, height: 4, radius: 0, border_width: 0, bg_color: 0xECD25A, hidden: true }
+        - obj: { id: dl1, align: CENTER, x: 0, y: -28, width: 26, height: 4, radius: 0, border_width: 0, bg_color: 0xECD25A, hidden: true }
+        - obj: { id: db0, align: CENTER, x: 0, y: 27, width: 26, height: 4, radius: 0, border_width: 0, bg_color: 0xECD25A, hidden: true }
+        - obj: { id: db1, align: CENTER, x: 0, y: 27, width: 26, height: 4, radius: 0, border_width: 0, bg_color: 0xECD25A, hidden: true }
+        - image: { id: coin, align: CENTER, x: 440, y: 0, src: img_coin, hidden: true }
+        - image: { id: obs1, align: CENTER, x: 200, y: -55, src: img_cop, hidden: true }
+        - image: { id: obs2, align: CENTER, x: 320, y: 55, src: img_mus, hidden: true }
+        - image: { id: obs3, align: CENTER, x: 460, y: 0, src: img_sed, hidden: true }
+        - image: { id: car, align: CENTER, x: -120, y: 0, src: img_p, hidden: true }
+        - label: { id: lbl_lives, align: CENTER, x: -70, y: -108, text: "", text_font: icons18, text_color: 0xE24B4A, hidden: true }
+        - label: { id: lbl_game_score, align: CENTER, x: 70, y: -108, text: "0", text_font: font_med, text_color: 0xCFEAE4, hidden: true }
+        - obj: { id: hit_flash, align: CENTER, x: 0, y: 0, width: 360, height: 360, radius: 0, border_width: 0, bg_color: 0xFF2A2A, bg_opa: 45%, hidden: true }
+        # --- Logo background (menu) ---
+        - image: { id: logo_bg, align: CENTER, x: 0, y: 0, src: img_logo, hidden: true }
+        # --- MENU (state 0): Start / How to play? / Scores (under the logo) ---
+        - button:
+            id: btn_start
+            align: CENTER
+            y: -8
+            width: 150
+            height: 44
+            radius: 22
+            bg_color: 0x2FE6CF
+            bg_opa: COVER
+            border_width: 0
+            on_click: [ script.execute: game_start ]
+            widgets:
+              - label: { align: CENTER, text: "Start", text_font: font_med, text_color: 0x06201C }
+        - button:
+            id: btn_howto
+            align: CENTER
+            y: 42
+            width: 150
+            height: 44
+            radius: 22
+            bg_color: 0x2A2E55
+            bg_opa: COVER
+            border_width: 0
+            on_click: [ lambda: 'id(g_game_state) = 3;', script.execute: game_screen ]
+            widgets:
+              - label: { align: CENTER, text: "How to play?", text_font: font_med, text_color: 0xFFFFFF }
+        - button:
+            id: btn_scores
+            align: CENTER
+            y: 92
+            width: 150
+            height: 44
+            radius: 22
+            bg_color: 0x2A2E55
+            bg_opa: COVER
+            border_width: 0
+            on_click: [ lambda: 'id(g_game_state) = 4;', script.execute: game_screen ]
+            widgets:
+              - label: { align: CENTER, text: "Scores", text_font: font_med, text_color: 0xFFFFFF }
+        # --- GAME OVER (state 2): score + Play + Exit ---
+        - label: { id: lbl_over, align: CENTER, x: 0, y: -10, text_align: CENTER, text: "", text_font: font_sel, text_color: 0xFFFFFF, hidden: true }
+        - label: { id: lbl_rec, align: CENTER, x: 0, y: 22, text_align: CENTER, text: "", text_font: font_artist, text_color: 0x9AA6B2, hidden: true }
+        - button:
+            id: btn_replay
+            align: CENTER
+            x: -66
+            y: 62
+            width: 112
+            height: 48
+            radius: 24
+            bg_color: 0x2FE6CF
+            bg_opa: COVER
+            border_width: 0
+            hidden: true
+            on_click: [ script.execute: game_start ]
+            widgets:
+              - label: { align: CENTER, text: "Play", text_font: font_med, text_color: 0x06201C }
+        - button:
+            id: btn_exit
+            align: CENTER
+            x: 66
+            y: 62
+            width: 112
+            height: 48
+            radius: 24
+            bg_color: 0x3A3A3D
+            bg_opa: COVER
+            border_width: 0
+            hidden: true
+            on_click: [ lambda: 'id(g_game_state) = 0;', script.execute: game_screen ]
+            widgets:
+              - label: { align: CENTER, text: "Exit", text_font: font_med, text_color: 0xFFFFFF }
+        # --- HOW TO PLAY? (state 3) - navy background, logo accents ---
+        - label: { id: lbl_howto_t, align: CENTER, y: -104, text: "HOW TO PLAY?", text_font: font_sel, text_color: 0xE94FB0, hidden: true }
+        - obj: { id: badge1, align: CENTER, x: -90, y: -46, width: 24, height: 24, radius: 12, bg_color: 0xE94FB0, bg_opa: COVER, border_width: 0, pad_all: 0, hidden: true, widgets: [ label: { align: CENTER, text: "1", text_font: font_artist, text_color: 0xFFFFFF } ] }
+        - obj: { id: badge2, align: CENTER, x: -90, y: -10, width: 24, height: 24, radius: 12, bg_color: 0xE94FB0, bg_opa: COVER, border_width: 0, pad_all: 0, hidden: true, widgets: [ label: { align: CENTER, text: "2", text_font: font_artist, text_color: 0xFFFFFF } ] }
+        - obj: { id: badge3, align: CENTER, x: -90, y: 26, width: 24, height: 24, radius: 12, bg_color: 0xE94FB0, bg_opa: COVER, border_width: 0, pad_all: 0, hidden: true, widgets: [ label: { align: CENTER, text: "3", text_font: font_artist, text_color: 0xFFFFFF } ] }
+        - obj: { id: badge4, align: CENTER, x: -90, y: 62, width: 24, height: 24, radius: 12, bg_color: 0xE94FB0, bg_opa: COVER, border_width: 0, pad_all: 0, hidden: true, widgets: [ label: { align: CENTER, text: "4", text_font: font_artist, text_color: 0xFFFFFF } ] }
+        - label: { id: lbl_howto1, align_to: { id: badge1, align: OUT_RIGHT_MID, x: 8 }, text: "Use the knob", text_font: font_med, text_color: 0xC2CDDA, hidden: true }
+        - label: { id: lbl_howto2, align_to: { id: badge2, align: OUT_RIGHT_MID, x: 8 }, text: "Dodge obstacles", text_font: font_med, text_color: 0xC2CDDA, hidden: true }
+        - label: { id: lbl_howto_b, align_to: { id: badge3, align: OUT_RIGHT_MID, x: 8 }, text: "Collect bonuses", text_font: font_med, text_color: 0xC2CDDA, hidden: true }
+        - image: { id: img_howcoin, align_to: { id: lbl_howto_b, align: OUT_RIGHT_MID, x: 6 }, src: img_coin, hidden: true }
+        - label: { id: lbl_howto_l, align_to: { id: badge4, align: OUT_RIGHT_MID, x: 8 }, text: "You have 3 lives", text_font: font_med, text_color: 0xC2CDDA, hidden: true }
+        - label: { id: lbl_howheart, align_to: { id: lbl_howto_l, align: OUT_RIGHT_MID, x: 6 }, text: "󰋑󰋑󰋑", text_font: icons18, text_color: 0xE24B4A, hidden: true }
+        # --- SCORES (state 4): top 10 in two columns ---
+        - label: { id: lbl_scores_t, align: CENTER, y: -116, text: "SCORES", text_font: font_sel, text_color: 0xE94FB0, hidden: true }
+        - label: { id: lbl_scores1, align: CENTER, x: -52, y: 0, text: "", text_align: LEFT, text_font: font_artist, text_color: 0xC2CDDA, hidden: true }
+        - label: { id: lbl_scores2, align: CENTER, x: 56, y: 0, text: "", text_align: LEFT, text_font: font_artist, text_color: 0xC2CDDA, hidden: true }
+        # --- Back (state 3/4 -> menu) ---
+        - button:
+            id: btn_back
+            align: CENTER
+            y: 120
+            width: 130
+            height: 42
+            radius: 21
+            bg_color: 0x3A3A3D
+            bg_opa: COVER
+            border_width: 0
+            hidden: true
+            on_click: [ lambda: 'id(g_game_state) = 0;', script.execute: game_screen ]
+            widgets:
+              - label: { align: CENTER, text: "Back", text_font: font_med, text_color: 0xFFFFFF }
