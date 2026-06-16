@@ -1,0 +1,37 @@
+# Home Assistant helper for the device's Weather screen (screens/weather.yaml).
+#
+# HA no longer exposes a weather entity's multi-day forecast as an attribute, so this
+# template calls weather.get_forecasts and publishes a single compact sensor the device
+# reads. State format: "condition,high,low,DayName|..." (one segment per day, up to 7).
+#
+# 1. Change weather.forecast_dom below to your weather entity (3 places).
+# 2. Put this in HA configuration.yaml (or a packages/ file), then restart HA / reload
+#    template entities. It creates sensor.va_weekly_forecast.
+# 3. On the device, ${forecast_entity} defaults to sensor.va_weekly_forecast - override
+#    the substitution if you name it differently.
+
+template:
+  - trigger:
+      - platform: homeassistant
+        event: start
+      - platform: time_pattern
+        minutes: "/30"
+    action:
+      - service: weather.get_forecasts
+        target:
+          entity_id: weather.forecast_dom
+        data:
+          type: daily
+        response_variable: fc
+    sensor:
+      - name: "VA weekly forecast"
+        unique_id: va_weekly_forecast
+        state: >
+          {% set ns = namespace(parts=[]) %}
+          {% for d in fc['weather.forecast_dom'].forecast[:7] %}
+            {% set hi = (d.temperature | round(0)) if d.temperature is not none else 0 %}
+            {% set lo = (d.templow | round(0)) if (d.templow is defined and d.templow is not none) else hi %}
+            {% set nm = as_timestamp(d.datetime) | timestamp_custom('%a', true) %}
+            {% set ns.parts = ns.parts + [d.condition ~ ',' ~ hi ~ ',' ~ lo ~ ',' ~ nm] %}
+          {% endfor %}
+          {{ ns.parts | join('|') }}

@@ -1,0 +1,181 @@
+# Weather - optional carousel screen (base id 5).
+# Shows today's conditions big; turn the knob to scroll the next days (up to 7).
+#
+# The 7-day forecast comes from a Home Assistant helper sensor (HA no longer exposes the
+# forecast as an attribute). Add screens/weather.ha-helper.yaml to your HA config; it
+# publishes ${forecast_entity} as "condition,high,low,DayName|..." (one segment per day).
+# Without the helper the screen still shows today's current conditions.
+#
+# Remove it: drop this file from your config's package "files:" list.
+
+esphome:
+  on_boot:
+    - priority: 655
+      then:
+        - lambda: 'id(g_present)[5] = true;'   # register the weather screen
+
+globals:
+  - id: g_wx_now           # current outdoor temp (rounded); -127 = no reading yet
+    type: int
+    restore_value: no
+    initial_value: '-127'
+  - id: g_wx_state_cur     # current condition keyword
+    type: std::string
+    restore_value: no
+  - id: g_wx_cond          # per-day condition keyword
+    type: std::string[7]
+    restore_value: no
+  - id: g_wx_name          # per-day short name (Mon/Tue/...)
+    type: std::string[7]
+    restore_value: no
+  - id: g_wx_hi
+    type: int[7]
+    restore_value: no
+  - id: g_wx_lo
+    type: int[7]
+    restore_value: no
+  - id: g_wx_n             # number of forecast days parsed
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_wx_day           # day shown (0 = today)
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+font:
+  - file: "https://github.com/Templarian/MaterialDesign-Webfont/raw/v7.4.47/fonts/materialdesignicons-webfont.ttf"
+    id: icons_wx
+    size: 96
+    bpp: 4
+    glyphs: ["󰖙", "󰖔", "󰖕", "󰖑", "󰖝", "󰖓", "󰖖", "󰖗", "󰖘", "󰖐"]
+
+script:
+  - id: wx_render
+    then:
+      - lvgl.label.update:
+          id: wx_p_title
+          text: !lambda |-
+            int d = id(g_wx_day);
+            if (d == 0) return std::string("Today");
+            if (d < id(g_wx_n)) return id(g_wx_name)[d];
+            return std::string("");
+      - lvgl.label.update:
+          id: wx_p_icon
+          text: !lambda |-
+            int d = id(g_wx_day);
+            std::string s = (d < id(g_wx_n)) ? id(g_wx_cond)[d] : id(g_wx_state_cur);
+            if (s == "sunny") return std::string("󰖙");
+            if (s == "clear-night") return std::string("󰖔");
+            if (s == "partlycloudy") return std::string("󰖕");
+            if (s == "fog") return std::string("󰖑");
+            if (s == "windy" || s == "windy-variant") return std::string("󰖝");
+            if (s == "lightning" || s == "lightning-rainy") return std::string("󰖓");
+            if (s == "pouring") return std::string("󰖖");
+            if (s == "rainy") return std::string("󰖗");
+            if (s == "snowy" || s == "snowy-rainy" || s == "hail") return std::string("󰖘");
+            return std::string("󰖐");
+      - lvgl.label.update:
+          id: wx_p_temp
+          text: !lambda |-
+            int d = id(g_wx_day);
+            int t;
+            if (d == 0 && id(g_wx_now) > -100) t = id(g_wx_now);
+            else if (d < id(g_wx_n)) t = id(g_wx_hi)[d];
+            else return std::string("--°");
+            char b[8]; snprintf(b, sizeof(b), "%d°", t); return std::string(b);
+      - lvgl.label.update:
+          id: wx_p_hilo
+          text: !lambda |-
+            int d = id(g_wx_day);
+            if (d >= id(g_wx_n)) return std::string("");
+            char b[24]; snprintf(b, sizeof(b), "H %d°   L %d°", id(g_wx_hi)[d], id(g_wx_lo)[d]);
+            return std::string(b);
+      - lvgl.label.update:
+          id: wx_p_hint
+          text: !lambda |-
+            int n = id(g_wx_n);
+            if (n <= 0) return std::string("turn knob - add HA forecast helper");
+            char b[20]; snprintf(b, sizeof(b), "‹ %d / %d ›", id(g_wx_day) + 1, n);
+            return std::string(b);
+
+sensor:
+  - platform: homeassistant
+    id: wx_now_temp
+    entity_id: ${weather_entity}
+    attribute: temperature
+    on_value:
+      - lambda: 'id(g_wx_now) = (int) roundf(x);'
+      - script.execute: wx_render
+
+text_sensor:
+  - platform: homeassistant
+    id: wx_now_state
+    entity_id: ${weather_entity}
+    on_value:
+      - lambda: 'id(g_wx_state_cur) = x;'
+      - script.execute: wx_render
+  - platform: homeassistant
+    id: wx_week
+    entity_id: ${forecast_entity}
+    on_value:
+      - lambda: |-
+          std::string s = x;
+          int n = 0; size_t pos = 0;
+          while (n < 7) {
+            size_t bar = s.find('|', pos);
+            std::string seg = (bar == std::string::npos) ? s.substr(pos) : s.substr(pos, bar - pos);
+            size_t c1 = seg.find(',');
+            if (c1 != std::string::npos) {
+              size_t c2 = seg.find(',', c1 + 1);
+              size_t c3 = (c2 != std::string::npos) ? seg.find(',', c2 + 1) : std::string::npos;
+              if (c2 != std::string::npos && c3 != std::string::npos) {
+                id(g_wx_cond)[n] = seg.substr(0, c1);
+                id(g_wx_hi)[n] = atoi(seg.substr(c1 + 1, c2 - c1 - 1).c_str());
+                id(g_wx_lo)[n] = atoi(seg.substr(c2 + 1, c3 - c2 - 1).c_str());
+                id(g_wx_name)[n] = seg.substr(c3 + 1);
+                n++;
+              }
+            }
+            if (bar == std::string::npos) break;
+            pos = bar + 1;
+          }
+          id(g_wx_n) = n;
+      - script.execute: wx_render
+
+interval:
+  # nav: show this screen when it is selected; capture the knob for day scrolling
+  - interval: 50ms
+    then:
+      - if:
+          condition: { lambda: 'return id(g_nav_req) && id(g_base)==5;' }
+          then:
+            - lambda: 'id(g_nav_req) = false; id(g_knob_capture) = true; id(g_wx_day) = 0;'
+            - if: { condition: { lambda: 'return id(g_nav_anim)==0;' }, then: [lvgl.page.show: { id: page_weather, animation: move_left,   time: 250ms }] }
+            - if: { condition: { lambda: 'return id(g_nav_anim)==1;' }, then: [lvgl.page.show: { id: page_weather, animation: move_right,  time: 250ms }] }
+            - if: { condition: { lambda: 'return id(g_nav_anim)==2;' }, then: [lvgl.page.show: { id: page_weather, animation: move_top,    time: 250ms }] }
+            - if: { condition: { lambda: 'return id(g_nav_anim)==3;' }, then: [lvgl.page.show: { id: page_weather, animation: move_bottom, time: 250ms }] }
+            - script.execute: wx_render
+  # knob scrolls the day while this screen is active
+  - interval: 120ms
+    then:
+      - if:
+          condition: { lambda: 'return id(g_base)==5 && id(g_knob_delta) != 0;' }
+          then:
+            - lambda: |-
+                id(g_wx_day) += id(g_knob_delta); id(g_knob_delta) = 0;
+                int mx = (id(g_wx_n) > 0) ? id(g_wx_n) - 1 : 0;
+                if (id(g_wx_day) < 0) id(g_wx_day) = 0;
+                if (id(g_wx_day) > mx) id(g_wx_day) = mx;
+            - script.execute: wx_render
+
+lvgl:
+  pages:
+    - id: page_weather
+      bg_color: 0x0B1020
+      widgets:
+        - label: { id: wx_p_title, align: TOP_MID,    y: 46,  text: "Today", text_font: font_med,     text_color: 0x9FC7BE }
+        - label: { id: wx_p_icon,  align: CENTER,     y: -34, text: "󰖐",     text_font: icons_wx,     text_color: 0xFFD24A }
+        - label: { id: wx_p_temp,  align: CENTER,     y: 60,  text: "--°",   text_font: montserrat_48, text_color: 0xFFFFFF }
+        - label: { id: wx_p_hilo,  align: CENTER,     y: 108, text: "",      text_font: font_med,     text_color: 0xBFD2DA }
+        - label: { id: wx_p_hint,  align: BOTTOM_MID, y: -34, text: "",      text_font: font_artist,  text_color: 0x5FF0D9 }

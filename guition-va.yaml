@@ -23,7 +23,8 @@ substitutions:
   neon_entity: switch.neon
   led_entity: light.led_strip
   # Carousel screen order (left-to-right). Screens not included in the build are skipped.
-  screen_order: "clock,player,timer,cars,space"
+  forecast_entity: sensor.va_weekly_forecast   # HA helper sensor (see screens/weather.ha-helper.yaml)
+  screen_order: "clock,player,timer,cars,space,weather"
 
 esphome:
   name: ${name}
@@ -67,6 +68,7 @@ esphome:
               else if (tok == "timer") id = 2;
               else if (tok == "cars") id = 3;
               else if (tok == "space") id = 4;
+              else if (tok == "weather") id = 5;
               if (id >= 0 && id < 8 && id(g_present)[id]) id(g_order)[id(g_order_n)++] = id;
               if (comma == std::string::npos) break;
               pos = comma + 1;
