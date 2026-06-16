@@ -95,9 +95,10 @@ microSD (SD_MMC):        CLK=39 CMD=38 D0=40 D1=41 D2=48 D3=47
    `http_request: verify_ssl: false` for self-signed HA. Skip reloading the same URL to
    cut flicker. Cover URL comes from the player entity's `entity_picture`.
 
-7. **Fonts/MDI icons are fetched at compile time** (Google Fonts + MaterialDesign TTF
-   from GitHub), so the build host needs internet. Game sprites are local PNGs in
-   `assets/sprites/` (loaded at compile) so they don't depend on any server at runtime.
+7. **Fonts, icons and game sprites are fetched at compile time** (Google Fonts +
+   MaterialDesign TTF, plus the PNGs under `assets/sprites/cool-cars/` and
+   `space-wars/` from the GitHub repo), so the build host needs internet. They are
+   baked into the firmware, so at runtime nothing depends on any server.
 
 8. **Battery is a heuristic.** ADC on GPIO6 (×2), 64-sample oversampling + moving
    average to fight ETA6003 ripple (no cap on BAT_ADC). Voltage→% is a calibrated

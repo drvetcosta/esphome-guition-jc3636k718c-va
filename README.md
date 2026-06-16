@@ -41,7 +41,7 @@ Full docs live in the **[wiki](https://github.com/MichalZaniewicz/esphome-guitio
 
 1. Copy `secrets.example.yaml` → `secrets.yaml` and fill in your Wi-Fi.
 2. Edit the `substitutions:` at the top of `guition-va.yaml` (HA URL + your entity IDs).
-3. Sounds (`wake.wav` / `alarm.wav`) are already included; regenerate with `python scripts/make_sounds.py` only if you want to change them.
+3. Images and sounds are **fetched from GitHub at compile time** (like the fonts), so you do not have to copy the `assets/` folder anywhere - only `guition-va.yaml` and `partitions.csv` need to sit together.
 4. **First flash over USB** - easiest via the **ESPHome dashboard** (GUI) or the CLI; the 16 MB partition table can't be set over OTA, so the first flash is USB, then updates go wireless.
 5. In Home Assistant: open the new ESPHome device → assign an Assist pipeline.
 
@@ -53,10 +53,11 @@ Full details on the [Installation](https://github.com/MichalZaniewicz/esphome-gu
 guition-va.yaml            # the whole device config (English UI)
 partitions.csv             # 16 MB partition table (MAX app slots)
 secrets.example.yaml       # copy to secrets.yaml
-assets/
+assets/                    # fetched from GitHub at compile time (no need to copy locally)
   header.jpg               # banner
-  sounds/                  # wake.wav + alarm.wav (bundled)
-  sprites/v2, sprites/v3   # game graphics (loaded at compile time)
+  sounds/                  # wake.wav + alarm.wav
+  sprites/cool-cars/       # "Cool Cars" game graphics
+  sprites/space-wars/      # "Space Wars" game graphics
 scripts/
   make_sounds.py           # (re)generate the wav sounds
   esplog.py                # stream device logs over the native API
