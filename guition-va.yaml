@@ -22,6 +22,8 @@ substitutions:
   lamp_entity: light.desk_lamp
   neon_entity: switch.neon
   led_entity: light.led_strip
+  # Carousel screen order (left-to-right). Screens not included in the build are skipped.
+  screen_order: "clock,player,timer,cars,space"
 
 esphome:
   name: ${name}
@@ -38,6 +40,8 @@ esphome:
             id(g_set_n) = 0;
             id(g_set_labels) = "";
             id(g_set_games_done) = false;
+            for (int i = 0; i < 8; i++) id(g_present)[i] = false;
+            id(g_present)[0] = true;   // clock is always present
     - priority: 790
       then:
         - lambda: |-
@@ -46,12 +50,28 @@ esphome:
             id(g_set_labels) += "\nRing";      id(g_set_items)[id(g_set_n)++] = 16;
             id(g_set_labels) += "\nAssistant"; id(g_set_items)[id(g_set_n)++] = 13;
             id(g_set_labels) += "\nSystem";    id(g_set_items)[id(g_set_n)++] = 15;
-    - priority: 700
+    - priority: 600
       then:
         - lambda: |-
-            id(g_order)[id(g_order_n)++] = 0;   // clock (always on)
-            // timer (base 2) is registered by screens/timer.yaml so its carousel slot is optional;
-            // the timer FEATURE (voice timers, alarm, home badge) stays here in the core always.
+            // build the carousel order from ${screen_order}, skipping screens not in this build
+            std::string s = "${screen_order}";
+            size_t pos = 0;
+            while (true) {
+              size_t comma = s.find(',', pos);
+              std::string tok = (comma == std::string::npos) ? s.substr(pos) : s.substr(pos, comma - pos);
+              while (!tok.empty() && tok.front() == ' ') tok.erase(tok.begin());
+              while (!tok.empty() && tok.back() == ' ') tok.pop_back();
+              int id = -1;
+              if (tok == "clock") id = 0;
+              else if (tok == "player") id = 1;
+              else if (tok == "timer") id = 2;
+              else if (tok == "cars") id = 3;
+              else if (tok == "space") id = 4;
+              if (id >= 0 && id < 8 && id(g_present)[id]) id(g_order)[id(g_order_n)++] = id;
+              if (comma == std::string::npos) break;
+              pos = comma + 1;
+            }
+            if (id(g_order_n) == 0) id(g_order)[id(g_order_n)++] = 0;   // safety: keep the clock
     - priority: -100
       then:
         - script.execute: night_apply    # brightness per g_bright / night mode
@@ -593,6 +613,9 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  - id: g_present        # which screens registered (by base id); carousel is built from screen_order
+    type: bool[8]
+    restore_value: no
 
 # Shows the volume arc for ~2 s while turning the knob, then hides it (mode: restart)
 script:
