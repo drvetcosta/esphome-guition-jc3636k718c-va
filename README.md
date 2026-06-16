@@ -1,3 +1,5 @@
+
+
 ![ESPHome + Home Assistant Voice Assistant on the Guition JC3636K718C](assets/header.jpg)
 
 # ESPHome Voice Assistant for the Guition JC3636K718C (round knob display)
@@ -11,9 +13,11 @@ It started as "my kid needs a physical timer" and turned into a whole puck. 🙂
 
 ## Demo
 
-<!-- Replace YOUR_VIDEO_URL below: edit this file on GitHub (pencil), drag assets/demo.mp4
-     into the editor so GitHub uploads it and shows a https://github.com/user-attachments/assets/...
-     link, then paste that link in place of YOUR_VIDEO_URL. Commit. -->
+
+
+https://github.com/user-attachments/assets/33c2a708-5f8b-4bab-a165-285cbfd919d9
+
+
 
 <div align="center">
   <video src="YOUR_VIDEO_URL" controls width="400"></video>
