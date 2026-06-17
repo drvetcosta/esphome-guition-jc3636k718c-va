@@ -3,6 +3,16 @@
 All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.1.1] - 2026-06-17
+
+### Added
+- **Sensors screen** (optional). A glance of 1-6 configurable Home Assistant entities, shown
+  one at a time big and readable; turn the knob to cycle (slider dots show the position).
+  Pulls straight from HA (no helper), auto-skips unconfigured slots, and units with a micro
+  sign / superscripts are sanitized so they don't render as boxes. New `glanceN_entity` /
+  `glanceN_name` / `glanceN_icon` substitutions, plus the icons `air`, `plant`, `plex`,
+  `server` and `shield`.
+
 ## [2.1.0] - 2026-06-17
 
 ### Added
@@ -60,6 +70,7 @@ from GitHub at compile time.
 - Fonts, images and sounds fetched from GitHub at compile time (nothing to copy locally
   except the config and the partition table).
 
+[2.1.1]: https://github.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/releases/tag/v2.1.1
 [2.1.0]: https://github.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/releases/tag/v2.1.0
 [2.0.0]: https://github.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/releases/tag/v2.0.0
 [1.0.0]: https://github.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/releases/tag/v1.0.0

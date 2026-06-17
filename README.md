@@ -42,13 +42,14 @@ Everything is navigated with **swipes + taps on the screen** and the **rotary kn
 | <img src="assets/screens/controls.png" width="170"> | **Control tiles** (swipe up)<br>Four configurable tiles toggling any HA entity; each has its own icon and label, and the colour follows the live on/off state. |
 | <img src="assets/screens/weather.png" width="170"> | **Weather**<br>Today plus a 7-day radial dial; turn the knob to scroll days. Centre shows the day, condition and high/low. |
 | <img src="assets/screens/thermostat.png" width="170"> | **Thermostat**<br>A dial for a `climate.*` entity; the knob sets the target, tap toggles on/off. Accent colour follows heating / cooling / idle. |
+| <img src="assets/screens/sensors.png" width="170"> | **Sensors**<br>A glance of 1-6 configurable Home Assistant entities, shown big one at a time; turn the knob to cycle (dots show the position). Any entity, pulled straight from HA. |
 | <img src="assets/screens/timer.png" width="170"> | **Timer**<br>Set by knob or voice; big countdown with a depleting ring, pause/stop, and an alarm when it finishes. |
 | <img src="assets/screens/cool-cars.png" width="170"> | **Cool Cars**<br>A lane-racing arcade game - the knob steers, dodge traffic and grab coins. |
 | <img src="assets/screens/space-wars.png" width="170"> | **Space Wars**<br>A vertical space shooter - the knob steers, auto-fire, survive the waves. |
 | <img src="assets/screens/settings.png" width="170"> | **Settings** (swipe down)<br>Display, Home, Widgets, Ring, Assistant, System; turn the knob to scroll, tap to enter. |
 | <img src="assets/screens/demo.png" width="170"> | **Demo**<br>A small, heavily commented example screen (tap flips black ↔ white) to copy when building your own. |
 
-> Optional screens (player, timer, games, weather, thermostat, demo) are pickable - choose which compile in and their order; see [Configuration](https://github.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/wiki/Configuration).
+> Optional screens (player, timer, games, weather, thermostat, sensors, demo) are pickable - choose which compile in and their order; see [Configuration](https://github.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/wiki/Configuration).
 
 ## Documentation
 
