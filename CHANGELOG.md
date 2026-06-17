@@ -3,6 +3,15 @@
 All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.1.2] - 2026-06-17
+
+### Changed
+- Per-screen settings are now declared in each screen's own package via a generic Widgets
+  options registry, so a screen is fully self-contained (its options, globals and reset
+  logic live in its file). Adding a screen with settings no longer touches the core.
+- The games' "Reset scores" is now under separate **Cool Cars** and **Space Wars** groups
+  in Settings -> Widgets (previously a single "Games" group); each game owns its high scores.
+
 ## [2.1.1] - 2026-06-17
 
 ### Added
@@ -70,6 +79,7 @@ from GitHub at compile time.
 - Fonts, images and sounds fetched from GitHub at compile time (nothing to copy locally
   except the config and the partition table).
 
+[2.1.2]: https://github.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/releases/tag/v2.1.2
 [2.1.1]: https://github.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/releases/tag/v2.1.1
 [2.1.0]: https://github.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/releases/tag/v2.1.0
 [2.0.0]: https://github.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/releases/tag/v2.0.0
