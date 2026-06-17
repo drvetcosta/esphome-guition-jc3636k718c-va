@@ -105,7 +105,8 @@ script:
                   auto rep = [&](const std::string &a, const std::string &b) {
                     size_t p; while ((p = v.find(a)) != std::string::npos) v.replace(p, a.size(), b);
                   };
-                  rep("\xC2\xB5", "u");   // µ -> u
+                  rep("\xC2\xB5", "u");   // µ micro sign (U+00B5) -> u
+                  rep("\xCE\xBC", "u");   // μ Greek mu (U+03BC, what HA often uses) -> u
                   rep("\xC2\xB2", "2");   // ² -> 2
                   rep("\xC2\xB3", "3");   // ³ -> 3
                   rep("\xC2\xB9", "1");   // ¹ -> 1
