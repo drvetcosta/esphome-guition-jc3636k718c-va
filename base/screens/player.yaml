@@ -95,7 +95,7 @@ text_sensor:
           text: !lambda 'return id(media_state).state == "playing" ? std::string("") : std::string("");'
       - if:
           condition:
-            lambda: 'return !id(g_va_active) && id(g_mode) == 0 && (id(g_base) == 0 || id(g_base) == 1);'   # auto-switch clock<->player only when we're on the clock/player
+            lambda: 'return !id(g_va_active) && !id(g_boot) && id(g_mode) == 0 && (id(g_base) == 0 || id(g_base) == 1);'   # auto-switch clock<->player only when we're on the clock/player (and not during boot splash)
           then:
             - if:
                 condition:

@@ -717,6 +717,14 @@ globals:
     type: int
     restore_value: no
     initial_value: '0'
+  - id: g_boot          # boot splash active (gates input until it hands off to the clock)
+    type: bool
+    restore_value: no
+    initial_value: 'true'
+  - id: g_boot_t        # boot splash tick counter
+    type: int
+    restore_value: no
+    initial_value: '0'
   - id: g_tile1_glyph
     type: std::string
     restore_value: no
@@ -1594,6 +1602,7 @@ touchscreen:
   on_release:
     # Gesture classification + mode snapshot (routing by g_mode0, so one gesture doesn't cascade)
     - lambda: |-
+        if (id(g_boot)) { id(g_gesture) = -1; id(g_mode0) = 0; return; }   // ignore input during the boot splash
         int dx = id(g_dx), dy = id(g_dy);
         uint32_t held = millis() - id(g_t0);
         int g;
@@ -2237,6 +2246,19 @@ text_sensor:
 # LVGL - home page (clock + VA status) and PLAYER page (album art)
 ###############################################################################
 interval:
+  # Boot splash: type out "HELLO!" then cross-fade to the clock (~3 s), once at startup.
+  - interval: 150ms
+    then:
+      - if:
+          condition: { lambda: 'return id(g_boot);' }
+          then:
+            - lambda: 'id(g_boot_t)++;'
+            - lvgl.label.update: { id: lbl_boot, text: !lambda 'std::string w = "HELLO!"; int n = id(g_boot_t); if (n > (int) w.size()) n = w.size(); return w.substr(0, n);' }
+            - if:
+                condition: { lambda: 'return id(g_boot_t) >= 20;' }
+                then:
+                  - lambda: 'id(g_boot) = false;'
+                  - lvgl.page.show: { id: page_home, animation: fade_in, time: 400ms }
   - interval: 2s
     then:
       - lambda: |-
@@ -2407,6 +2429,12 @@ lvgl:
           text_font: montserrat_20
   pages:
     # --- Home page: clock + Assistant status ---
+    # --- Boot splash: typewriter "HELLO!" then fade to the clock (driven by the 150ms interval) ---
+    - id: page_boot
+      bg_color: 0x000000
+      widgets:
+        - label: { id: lbl_boot, align: CENTER, y: -10, text: "", text_font: montserrat_48, text_color: 0xFFFFFF }
+        - label: { id: lbl_boot_sub, align: CENTER, y: 40, text: "${friendly_name}", text_font: font_med, text_color: 0x5FF0D9 }
     - id: page_home
       bg_color: 0x000000
       widgets:
