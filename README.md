@@ -135,3 +135,4 @@ automatically. See the [wiki](https://github.com/MichalZaniewicz/esphome-guition
   (`JC3636K718_knob_EN`) - this is the correct pinout for the **K718C** board, which
   differs from the otherwise-similar **JC3636W518**.
 - Built with [ESPHome](https://esphome.io/) + Home Assistant.
+- Presence-screen avatars: "ToonHead" by Johan Melin via [DiceBear](https://www.dicebear.com/), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).

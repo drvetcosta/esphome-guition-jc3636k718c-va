@@ -62,30 +62,29 @@ substitutions:
   glance6_entity: sensor.va_glance_unused6
   glance6_name: ""
   glance6_icon: ""
-  # Who's home screen: up to 6 person.* entities (avatar from entity_picture + name). Unused = skipped.
-  # personN_avatar_url: optional custom avatar that OVERRIDES the HA photo. Must be a PNG, square,
-  # ideally 64x64 (it's resized to 64 anyway). Leave empty to use the person's HA picture / initials.
+  # Presence screen: up to 6 person.* entities (+ a name). Unused = skipped.
+  # personN_avatar: which baked cartoon avatar to use, 1..24.
   person1_entity: person.you
   person1_name: "You"
-  person1_avatar_url: ""
+  person1_avatar: "1"
   person2_entity: person.va_unused2
   person2_name: ""
-  person2_avatar_url: ""
+  person2_avatar: "2"
   person3_entity: person.va_unused3
   person3_name: ""
-  person3_avatar_url: ""
+  person3_avatar: "3"
   person4_entity: person.va_unused4
   person4_name: ""
-  person4_avatar_url: ""
+  person4_avatar: "4"
   person5_entity: person.va_unused5
   person5_name: ""
-  person5_avatar_url: ""
+  person5_avatar: "5"
   person6_entity: person.va_unused6
   person6_name: ""
-  person6_avatar_url: ""
+  person6_avatar: "6"
   forecast_entity: sensor.va_weekly_forecast   # weather screen forecast (HA helper, see base/screens/weather.ha-helper.yaml)
   # Carousel screen order (left-to-right). Screens not included in the build are skipped.
-  screen_order: "clock,player,timer,cars,space,weather,thermostat,sensors,who,demo"
+  screen_order: "clock,player,timer,cars,space,weather,thermostat,sensors,presence,demo"
 
 esphome:
   name: ${name}
@@ -175,7 +174,7 @@ esphome:
               else if (tok == "demo") id = 6;
               else if (tok == "thermostat") id = 7;
               else if (tok == "sensors") id = 8;
-              else if (tok == "who") id = 9;
+              else if (tok == "presence") id = 9;
               if (id >= 0 && id < 16 && id(g_present)[id]) id(g_order)[id(g_order_n)++] = id;
               if (comma == std::string::npos) break;
               pos = comma + 1;

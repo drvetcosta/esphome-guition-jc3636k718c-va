@@ -1,0 +1,263 @@
+# Presence ("who's home") - optional carousel screen (base id 9, carousel name "presence").
+# A rotating person dial: each person.* sits on a ring of cartoon avatars; turn the KNOB and the
+# carousel smoothly slides so the selected person rotates to the TOP (highlighted), with their name
+# and location (Home / zone / Away, colour-coded) in the centre.
+#
+# Avatars are baked in at COMPILE time (DiceBear "ToonHead" by Johan Melin, CC BY 4.0) - NO runtime
+# downloads, so it stays fast. Pick one of the 24 per person with personN_avatar (1..24). Configure
+# personN_entity / personN_name. Remove the screen by dropping this file from the "files:" list.
+
+esphome:
+  on_boot:
+    - priority: 655
+      then:
+        - lambda: |-
+            id(g_present)[9] = true;
+            const char* nm[6] = { "${person1_name}","${person2_name}","${person3_name}","${person4_name}","${person5_name}","${person6_name}" };
+            for (int i = 0; i < 6; i++) id(g_pr_name)[i] = nm[i];
+
+globals:
+  - id: g_pr_state      # person state: home / not_home / zone name
+    type: std::string[6]
+    restore_value: no
+  - id: g_pr_name
+    type: std::string[6]
+    restore_value: no
+  - id: g_pr_present    # got a state from HA
+    type: bool[6]
+    restore_value: no
+  - id: g_pr_list       # present person index per ring slot (0..n-1)
+    type: int[6]
+    restore_value: no
+  - id: g_pr_n
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_pr_sel        # selected ring slot
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_pr_pos        # eased ring position (animated)
+    type: float
+    restore_value: no
+    initial_value: '0.0'
+  - id: g_pr_target     # target ring position (set by the knob)
+    type: float
+    restore_value: no
+    initial_value: '0.0'
+  - id: g_pr_moving
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+# 12 cartoon avatars, downloaded once at compile time and baked into the firmware (no runtime cost).
+image:
+  - { id: pr_avatar1,  file: "https://api.dicebear.com/9.x/toon-head/png?seed=Felix&size=88&radius=50&backgroundColor=b6e3f4,ffd5dc,ffdfbf,c0aede,d1d4f9", type: RGB565, transparency: alpha_channel }
+  - { id: pr_avatar2,  file: "https://api.dicebear.com/9.x/toon-head/png?seed=Mia&size=88&radius=50&backgroundColor=b6e3f4,ffd5dc,ffdfbf,c0aede,d1d4f9", type: RGB565, transparency: alpha_channel }
+  - { id: pr_avatar3,  file: "https://api.dicebear.com/9.x/toon-head/png?seed=Leo&size=88&radius=50&backgroundColor=b6e3f4,ffd5dc,ffdfbf,c0aede,d1d4f9", type: RGB565, transparency: alpha_channel }
+  - { id: pr_avatar4,  file: "https://api.dicebear.com/9.x/toon-head/png?seed=Zoe&size=88&radius=50&backgroundColor=b6e3f4,ffd5dc,ffdfbf,c0aede,d1d4f9", type: RGB565, transparency: alpha_channel }
+  - { id: pr_avatar5,  file: "https://api.dicebear.com/9.x/toon-head/png?seed=Max&size=88&radius=50&backgroundColor=b6e3f4,ffd5dc,ffdfbf,c0aede,d1d4f9", type: RGB565, transparency: alpha_channel }
+  - { id: pr_avatar6,  file: "https://api.dicebear.com/9.x/toon-head/png?seed=Nina&size=88&radius=50&backgroundColor=b6e3f4,ffd5dc,ffdfbf,c0aede,d1d4f9", type: RGB565, transparency: alpha_channel }
+  - { id: pr_avatar7,  file: "https://api.dicebear.com/9.x/toon-head/png?seed=Sam&size=88&radius=50&backgroundColor=b6e3f4,ffd5dc,ffdfbf,c0aede,d1d4f9", type: RGB565, transparency: alpha_channel }
+  - { id: pr_avatar8,  file: "https://api.dicebear.com/9.x/toon-head/png?seed=Ola&size=88&radius=50&backgroundColor=b6e3f4,ffd5dc,ffdfbf,c0aede,d1d4f9", type: RGB565, transparency: alpha_channel }
+  - { id: pr_avatar9,  file: "https://api.dicebear.com/9.x/toon-head/png?seed=Kuba&size=88&radius=50&backgroundColor=b6e3f4,ffd5dc,ffdfbf,c0aede,d1d4f9", type: RGB565, transparency: alpha_channel }
+  - { id: pr_avatar10, file: "https://api.dicebear.com/9.x/toon-head/png?seed=Ula&size=88&radius=50&backgroundColor=b6e3f4,ffd5dc,ffdfbf,c0aede,d1d4f9", type: RGB565, transparency: alpha_channel }
+  - { id: pr_avatar11, file: "https://api.dicebear.com/9.x/toon-head/png?seed=Tomek&size=88&radius=50&backgroundColor=b6e3f4,ffd5dc,ffdfbf,c0aede,d1d4f9", type: RGB565, transparency: alpha_channel }
+  - { id: pr_avatar12, file: "https://api.dicebear.com/9.x/toon-head/png?seed=Ada&size=88&radius=50&backgroundColor=b6e3f4,ffd5dc,ffdfbf,c0aede,d1d4f9", type: RGB565, transparency: alpha_channel }
+  - { id: pr_avatar13, file: "https://api.dicebear.com/9.x/toon-head/png?seed=Bea&size=88&radius=50&backgroundColor=b6e3f4,ffd5dc,ffdfbf,c0aede,d1d4f9", type: RGB565, transparency: alpha_channel }
+  - { id: pr_avatar14, file: "https://api.dicebear.com/9.x/toon-head/png?seed=Cyd&size=88&radius=50&backgroundColor=b6e3f4,ffd5dc,ffdfbf,c0aede,d1d4f9", type: RGB565, transparency: alpha_channel }
+  - { id: pr_avatar15, file: "https://api.dicebear.com/9.x/toon-head/png?seed=Dot&size=88&radius=50&backgroundColor=b6e3f4,ffd5dc,ffdfbf,c0aede,d1d4f9", type: RGB565, transparency: alpha_channel }
+  - { id: pr_avatar16, file: "https://api.dicebear.com/9.x/toon-head/png?seed=Eli&size=88&radius=50&backgroundColor=b6e3f4,ffd5dc,ffdfbf,c0aede,d1d4f9", type: RGB565, transparency: alpha_channel }
+  - { id: pr_avatar17, file: "https://api.dicebear.com/9.x/toon-head/png?seed=Fox&size=88&radius=50&backgroundColor=b6e3f4,ffd5dc,ffdfbf,c0aede,d1d4f9", type: RGB565, transparency: alpha_channel }
+  - { id: pr_avatar18, file: "https://api.dicebear.com/9.x/toon-head/png?seed=Gus&size=88&radius=50&backgroundColor=b6e3f4,ffd5dc,ffdfbf,c0aede,d1d4f9", type: RGB565, transparency: alpha_channel }
+  - { id: pr_avatar19, file: "https://api.dicebear.com/9.x/toon-head/png?seed=Hal&size=88&radius=50&backgroundColor=b6e3f4,ffd5dc,ffdfbf,c0aede,d1d4f9", type: RGB565, transparency: alpha_channel }
+  - { id: pr_avatar20, file: "https://api.dicebear.com/9.x/toon-head/png?seed=Ivo&size=88&radius=50&backgroundColor=b6e3f4,ffd5dc,ffdfbf,c0aede,d1d4f9", type: RGB565, transparency: alpha_channel }
+  - { id: pr_avatar21, file: "https://api.dicebear.com/9.x/toon-head/png?seed=Jo&size=88&radius=50&backgroundColor=b6e3f4,ffd5dc,ffdfbf,c0aede,d1d4f9", type: RGB565, transparency: alpha_channel }
+  - { id: pr_avatar22, file: "https://api.dicebear.com/9.x/toon-head/png?seed=Kim&size=88&radius=50&backgroundColor=b6e3f4,ffd5dc,ffdfbf,c0aede,d1d4f9", type: RGB565, transparency: alpha_channel }
+  - { id: pr_avatar23, file: "https://api.dicebear.com/9.x/toon-head/png?seed=Liv&size=88&radius=50&backgroundColor=b6e3f4,ffd5dc,ffdfbf,c0aede,d1d4f9", type: RGB565, transparency: alpha_channel }
+  - { id: pr_avatar24, file: "https://api.dicebear.com/9.x/toon-head/png?seed=Moe&size=88&radius=50&backgroundColor=b6e3f4,ffd5dc,ffdfbf,c0aede,d1d4f9", type: RGB565, transparency: alpha_channel }
+
+script:
+  - id: pr_buildlist      # rebuild the present-person ring list
+    then:
+      - lambda: |-
+          id(g_pr_n) = 0;
+          for (int p = 0; p < 6; p++) if (id(g_pr_present)[p]) id(g_pr_list)[id(g_pr_n)++] = p;
+          if (id(g_pr_n) > 0) {
+            if (id(g_pr_sel) >= id(g_pr_n)) id(g_pr_sel) = 0;
+            id(g_pr_target) = id(g_pr_sel); id(g_pr_pos) = id(g_pr_sel);
+          }
+  - id: pr_center         # centre name + location + highlight colour for the selected person
+    then:
+      - if:
+          condition: { lambda: 'return id(g_pr_n) <= 0;' }
+          then:
+            - lvgl.widget.show: pr_empty
+            - lvgl.widget.hide: pr_name
+            - lvgl.widget.hide: pr_loc
+            - lvgl.widget.hide: pr_selring
+          else:
+            - lvgl.widget.hide: pr_empty
+            - lvgl.widget.show: pr_name
+            - lvgl.widget.show: pr_loc
+            - lvgl.widget.show: pr_selring
+            - lvgl.label.update: { id: pr_name, text: !lambda 'return id(g_pr_name)[id(g_pr_list)[id(g_pr_sel)]];' }
+            - lvgl.label.update:
+                id: pr_loc
+                text: !lambda |-
+                  std::string s = id(g_pr_state)[id(g_pr_list)[id(g_pr_sel)]];
+                  if (s == "home") return std::string("Home");
+                  if (s == "not_home" || s.empty()) return std::string("Away");
+                  if (s[0] >= 'a' && s[0] <= 'z') s[0] -= 32;
+                  return s;
+            - if:
+                condition: { lambda: 'return id(g_pr_state)[id(g_pr_list)[id(g_pr_sel)]] == "home";' }
+                then:
+                  - lvgl.label.update: { id: pr_loc, text_color: 0x35C759 }
+                  - lvgl.widget.update: { id: pr_selring, border_color: 0x35C759 }
+                else:
+                  - if:
+                      condition: { lambda: 'std::string s=id(g_pr_state)[id(g_pr_list)[id(g_pr_sel)]]; return s=="not_home" || s.empty();' }
+                      then:
+                        - lvgl.label.update: { id: pr_loc, text_color: 0x6F9A92 }
+                        - lvgl.widget.update: { id: pr_selring, border_color: 0x3A3A3D }
+                      else:
+                        - lvgl.label.update: { id: pr_loc, text_color: 0xFFB020 }
+                        - lvgl.widget.update: { id: pr_selring, border_color: 0xFFB020 }
+  - id: pr_place          # position the avatars around the ring from g_pr_pos (R=116)
+    then:
+      - lvgl.widget.update: { id: pr_p0, hidden: !lambda 'return !id(g_pr_present)[0];', x: !lambda 'int n=id(g_pr_n); if(n<1)return 0; int r=-1; for(int k=0;k<n;k++) if(id(g_pr_list)[k]==0){r=k;break;} if(r<0)return 0; float o=r-id(g_pr_pos); while(o>n/2.0f)o-=n; while(o<-n/2.0f)o+=n; return (int)lroundf(116.0f*sinf(o*6.2831853f/n));', y: !lambda 'int n=id(g_pr_n); if(n<1)return -116; int r=-1; for(int k=0;k<n;k++) if(id(g_pr_list)[k]==0){r=k;break;} if(r<0)return -116; float o=r-id(g_pr_pos); while(o>n/2.0f)o-=n; while(o<-n/2.0f)o+=n; return (int)lroundf(-116.0f*cosf(o*6.2831853f/n));' }
+      - lvgl.widget.update: { id: pr_p1, hidden: !lambda 'return !id(g_pr_present)[1];', x: !lambda 'int n=id(g_pr_n); if(n<1)return 0; int r=-1; for(int k=0;k<n;k++) if(id(g_pr_list)[k]==1){r=k;break;} if(r<0)return 0; float o=r-id(g_pr_pos); while(o>n/2.0f)o-=n; while(o<-n/2.0f)o+=n; return (int)lroundf(116.0f*sinf(o*6.2831853f/n));', y: !lambda 'int n=id(g_pr_n); if(n<1)return -116; int r=-1; for(int k=0;k<n;k++) if(id(g_pr_list)[k]==1){r=k;break;} if(r<0)return -116; float o=r-id(g_pr_pos); while(o>n/2.0f)o-=n; while(o<-n/2.0f)o+=n; return (int)lroundf(-116.0f*cosf(o*6.2831853f/n));' }
+      - lvgl.widget.update: { id: pr_p2, hidden: !lambda 'return !id(g_pr_present)[2];', x: !lambda 'int n=id(g_pr_n); if(n<1)return 0; int r=-1; for(int k=0;k<n;k++) if(id(g_pr_list)[k]==2){r=k;break;} if(r<0)return 0; float o=r-id(g_pr_pos); while(o>n/2.0f)o-=n; while(o<-n/2.0f)o+=n; return (int)lroundf(116.0f*sinf(o*6.2831853f/n));', y: !lambda 'int n=id(g_pr_n); if(n<1)return -116; int r=-1; for(int k=0;k<n;k++) if(id(g_pr_list)[k]==2){r=k;break;} if(r<0)return -116; float o=r-id(g_pr_pos); while(o>n/2.0f)o-=n; while(o<-n/2.0f)o+=n; return (int)lroundf(-116.0f*cosf(o*6.2831853f/n));' }
+      - lvgl.widget.update: { id: pr_p3, hidden: !lambda 'return !id(g_pr_present)[3];', x: !lambda 'int n=id(g_pr_n); if(n<1)return 0; int r=-1; for(int k=0;k<n;k++) if(id(g_pr_list)[k]==3){r=k;break;} if(r<0)return 0; float o=r-id(g_pr_pos); while(o>n/2.0f)o-=n; while(o<-n/2.0f)o+=n; return (int)lroundf(116.0f*sinf(o*6.2831853f/n));', y: !lambda 'int n=id(g_pr_n); if(n<1)return -116; int r=-1; for(int k=0;k<n;k++) if(id(g_pr_list)[k]==3){r=k;break;} if(r<0)return -116; float o=r-id(g_pr_pos); while(o>n/2.0f)o-=n; while(o<-n/2.0f)o+=n; return (int)lroundf(-116.0f*cosf(o*6.2831853f/n));' }
+      - lvgl.widget.update: { id: pr_p4, hidden: !lambda 'return !id(g_pr_present)[4];', x: !lambda 'int n=id(g_pr_n); if(n<1)return 0; int r=-1; for(int k=0;k<n;k++) if(id(g_pr_list)[k]==4){r=k;break;} if(r<0)return 0; float o=r-id(g_pr_pos); while(o>n/2.0f)o-=n; while(o<-n/2.0f)o+=n; return (int)lroundf(116.0f*sinf(o*6.2831853f/n));', y: !lambda 'int n=id(g_pr_n); if(n<1)return -116; int r=-1; for(int k=0;k<n;k++) if(id(g_pr_list)[k]==4){r=k;break;} if(r<0)return -116; float o=r-id(g_pr_pos); while(o>n/2.0f)o-=n; while(o<-n/2.0f)o+=n; return (int)lroundf(-116.0f*cosf(o*6.2831853f/n));' }
+      - lvgl.widget.update: { id: pr_p5, hidden: !lambda 'return !id(g_pr_present)[5];', x: !lambda 'int n=id(g_pr_n); if(n<1)return 0; int r=-1; for(int k=0;k<n;k++) if(id(g_pr_list)[k]==5){r=k;break;} if(r<0)return 0; float o=r-id(g_pr_pos); while(o>n/2.0f)o-=n; while(o<-n/2.0f)o+=n; return (int)lroundf(116.0f*sinf(o*6.2831853f/n));', y: !lambda 'int n=id(g_pr_n); if(n<1)return -116; int r=-1; for(int k=0;k<n;k++) if(id(g_pr_list)[k]==5){r=k;break;} if(r<0)return -116; float o=r-id(g_pr_pos); while(o>n/2.0f)o-=n; while(o<-n/2.0f)o+=n; return (int)lroundf(-116.0f*cosf(o*6.2831853f/n));' }
+
+text_sensor:
+  - platform: homeassistant
+    id: pr_s0
+    entity_id: ${person1_entity}
+    on_value: [ lambda: 'id(g_pr_state)[0]=x; id(g_pr_present)[0]=true;', script.execute: pr_buildlist, script.execute: pr_place, script.execute: pr_center ]
+  - platform: homeassistant
+    id: pr_s1
+    entity_id: ${person2_entity}
+    on_value: [ lambda: 'id(g_pr_state)[1]=x; id(g_pr_present)[1]=true;', script.execute: pr_buildlist, script.execute: pr_place, script.execute: pr_center ]
+  - platform: homeassistant
+    id: pr_s2
+    entity_id: ${person3_entity}
+    on_value: [ lambda: 'id(g_pr_state)[2]=x; id(g_pr_present)[2]=true;', script.execute: pr_buildlist, script.execute: pr_place, script.execute: pr_center ]
+  - platform: homeassistant
+    id: pr_s3
+    entity_id: ${person4_entity}
+    on_value: [ lambda: 'id(g_pr_state)[3]=x; id(g_pr_present)[3]=true;', script.execute: pr_buildlist, script.execute: pr_place, script.execute: pr_center ]
+  - platform: homeassistant
+    id: pr_s4
+    entity_id: ${person5_entity}
+    on_value: [ lambda: 'id(g_pr_state)[4]=x; id(g_pr_present)[4]=true;', script.execute: pr_buildlist, script.execute: pr_place, script.execute: pr_center ]
+  - platform: homeassistant
+    id: pr_s5
+    entity_id: ${person6_entity}
+    on_value: [ lambda: 'id(g_pr_state)[5]=x; id(g_pr_present)[5]=true;', script.execute: pr_buildlist, script.execute: pr_place, script.execute: pr_center ]
+
+interval:
+  # Carousel nav: when selected, show the page, take the knob, lay out the avatars.
+  - interval: 50ms
+    then:
+      - if:
+          condition: { lambda: 'return id(g_nav_req) && id(g_base)==9;' }
+          then:
+            - lambda: 'id(g_nav_req) = false; id(g_knob_capture) = true; id(g_pr_moving) = false;'
+            - if: { condition: { lambda: 'return id(g_nav_anim)==0;' }, then: [lvgl.page.show: { id: page_presence, animation: move_left,   time: 250ms }] }
+            - if: { condition: { lambda: 'return id(g_nav_anim)==1;' }, then: [lvgl.page.show: { id: page_presence, animation: move_right,  time: 250ms }] }
+            - if: { condition: { lambda: 'return id(g_nav_anim)==2;' }, then: [lvgl.page.show: { id: page_presence, animation: move_top,    time: 250ms }] }
+            - if: { condition: { lambda: 'return id(g_nav_anim)==3;' }, then: [lvgl.page.show: { id: page_presence, animation: move_bottom, time: 250ms }] }
+            - script.execute: pr_buildlist
+            - script.execute: pr_place
+            - script.execute: pr_center
+  # Smooth rotation: ease g_pr_pos toward g_pr_target (~30 fps) and reposition while moving.
+  - interval: 33ms
+    then:
+      - if:
+          condition: { lambda: 'return id(g_base)==9 && id(g_pr_moving) && id(g_pr_n) > 0;' }
+          then:
+            - lambda: |-
+                float d = id(g_pr_target) - id(g_pr_pos);
+                if (fabsf(d) < 0.02f) {
+                  int n = id(g_pr_n);
+                  float t = fmodf(id(g_pr_target), (float) n); if (t < 0) t += n;
+                  id(g_pr_target) = t; id(g_pr_pos) = t;
+                  id(g_pr_sel) = ((int) lroundf(t)) % n;
+                  id(g_pr_moving) = false;
+                } else {
+                  id(g_pr_pos) += d * 0.30f;
+                }
+            - script.execute: pr_place
+            - if:
+                condition: { lambda: 'return !id(g_pr_moving);' }
+                then: [ script.execute: pr_center ]
+  # Knob rotates the carousel (one person per detent); capture only when there's more than one.
+  - interval: 120ms
+    then:
+      - if:
+          condition: { lambda: 'return id(g_base)==9;' }
+          then:
+            - lambda: 'id(g_knob_capture) = (id(g_pr_n) > 1);'
+            - if:
+                condition: { lambda: 'return id(g_knob_delta) != 0 && id(g_pr_n) > 1;' }
+                then:
+                  - lambda: 'id(g_pr_target) += (float) id(g_knob_delta); id(g_knob_delta) = 0; id(g_pr_moving) = true;'
+
+lvgl:
+  pages:
+    - id: page_presence
+      bg_color: 0x0B1020
+      widgets:
+        # ring avatars (positions set in pr_place); each person's chosen avatar is bound at compile time
+        - image:
+            id: pr_p0
+            align: CENTER
+            x: 0
+            y: -116
+            hidden: true
+            src: pr_avatar${person1_avatar}
+        - image:
+            id: pr_p1
+            align: CENTER
+            x: 0
+            y: -116
+            hidden: true
+            src: pr_avatar${person2_avatar}
+        - image:
+            id: pr_p2
+            align: CENTER
+            x: 0
+            y: -116
+            hidden: true
+            src: pr_avatar${person3_avatar}
+        - image:
+            id: pr_p3
+            align: CENTER
+            x: 0
+            y: -116
+            hidden: true
+            src: pr_avatar${person4_avatar}
+        - image:
+            id: pr_p4
+            align: CENTER
+            x: 0
+            y: -116
+            hidden: true
+            src: pr_avatar${person5_avatar}
+        - image:
+            id: pr_p5
+            align: CENTER
+            x: 0
+            y: -116
+            hidden: true
+            src: pr_avatar${person6_avatar}
+        # highlight ring around the top (selected) slot
+        - obj: { id: pr_selring, align: CENTER, x: 0, y: -116, width: 96, height: 96, radius: 48, bg_opa: TRANSP, border_width: 3, border_color: 0x35C759, hidden: true }
+        # centre: name + location
+        - label: { id: pr_name, align: CENTER, y: 14, text: "", text_font: font_sel, text_color: 0xFFFFFF }
+        - label: { id: pr_loc, align: CENTER, y: 52, text: "", text_font: font_med, text_color: 0x35C759 }
+        - label: { id: pr_empty, align: CENTER, text: "Set person entities", text_font: font_med, text_color: 0x466761, hidden: true }
