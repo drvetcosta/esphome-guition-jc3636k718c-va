@@ -51,7 +51,14 @@ esphome:
             id(g_set_labels) += "\nHome";       id(g_set_items)[id(g_set_n)++] = 12;
             id(g_set_labels) += "\nRing";      id(g_set_items)[id(g_set_n)++] = 16;
             id(g_set_labels) += "\nAssistant"; id(g_set_items)[id(g_set_n)++] = 13;
-            id(g_set_labels) += "\nSystem";    id(g_set_items)[id(g_set_n)++] = 15;
+    - priority: 605
+      then:
+        - lambda: 'id(g_set_labels) += "
+Restart"; id(g_set_items)[id(g_set_n)++] = 9;'
+    - priority: 595
+      then:
+        - lambda: 'id(g_set_labels) += "
+System"; id(g_set_items)[id(g_set_n)++] = 15;'   # always last
     - priority: 600
       then:
         - lambda: |-
