@@ -12,6 +12,9 @@
 substitutions:
   name: voice-knob
   friendly_name: "Voice Knob"
+  # Clock timezone (IANA name, e.g. Europe/Warsaw, America/New_York). DST is automatic.
+  # HA does not push its zone to the device, so set yours here.
+  timezone: "Europe/Warsaw"
   # For album art: base URL of your HA + the media_player entity (change if different)
   ha_base_url: "http://homeassistant.local:8123"
   player_entity: media_player.voice_knob_player
@@ -177,8 +180,10 @@ captive_portal:
 time:
   - platform: homeassistant
     id: ha_time
-    # No manual timezone: let Home Assistant provide its configured zone (authoritative).
-    # (A hard-coded POSIX TZ string here was intermittently not applied -> clock showed UTC.)
+    # The homeassistant time platform syncs the epoch from HA but NOT the timezone, so
+    # without this the clock falls back to the compile host's zone (often UTC). Set your
+    # IANA zone in the `timezone` substitution (top of file / thin config). DST is handled.
+    timezone: "${timezone}"
 
 ###############################################################################
 # AUDIO - DAC PCM5100A (out) + microphone + voice assistant (HA Assist)
