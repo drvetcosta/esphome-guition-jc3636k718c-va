@@ -239,7 +239,7 @@ media_player:
       speaker: media_resampling_speaker
     files:
       - id: wake_sound
-        file: https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/main/assets/sounds/wake.wav   # beep after "Alexa"
+        file: https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/main/assets/sounds/wake.wav   # beep after the wake word
       - id: alarm_sound
         file: https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/main/assets/sounds/alarm.wav  # timer alarm (generated with make_sounds.py)
 
@@ -340,7 +340,7 @@ voice_assistant:
     - script.execute: timer_render
 
 ###############################################################################
-# WAKE WORD on-device - "Alexa" (built-in micro_wake_word, no external component)
+# WAKE WORD on-device (built-in micro_wake_word, no external component; model = ${wake_word})
 ###############################################################################
 micro_wake_word:
   microphone: i2s_microphone
@@ -573,7 +573,7 @@ globals:
     type: int
     restore_value: no
     initial_value: '0'
-  - id: g_ww_on        # wake word "Alexa" enabled
+  - id: g_ww_on        # wake word enabled
     type: bool
     restore_value: no
     initial_value: 'true'
@@ -1614,7 +1614,7 @@ touchscreen:
                 - script.execute: show_base
           # game: START/Play buttons on the game screen handle start/restart (not a global tap)
           # prev/play/next are handled by the buttons on the player screen (transport)
-          - if:   # hold -> Alexa (works on every screen)
+          - if:   # hold -> start the assistant (works on every screen)
               condition:
                 lambda: 'return id(g_gesture) == 1;'
               then:
