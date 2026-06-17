@@ -1,0 +1,208 @@
+# Sensors / glance - optional carousel screen (base id 8).
+# Shows one configurable Home Assistant sensor at a time, big and readable; turn the KNOB to
+# cycle between them. Pulls straight from HA (no helper). Works for 1 sensor (no cycling) up to
+# 6 (knob scrolls, a "n/total" indicator appears). Any entity works - the state is shown as text
+# and the unit comes from the entity's unit_of_measurement attribute.
+#
+# Configure slots with the glanceN_entity / glanceN_name / glanceN_icon substitutions. Leave a
+# slot at its default (a non-existent entity) and it's skipped automatically. Icon names use the
+# same set as the control tiles; leave empty for no icon.
+#
+# Remove it: drop this file from the package "files:" list.
+
+esphome:
+  on_boot:
+    - priority: 655
+      then:
+        - lambda: |-
+            id(g_present)[8] = true;   // register the sensors screen
+            // resolve icon names -> glyphs (same set as the control tiles); "" -> no icon
+            auto ic = [](const std::string &s) -> std::string {
+              if (s == "bulb" || s == "light") return "\U000f0335";
+              if (s == "lamp") return "\U000f06b5";
+              if (s == "led" || s == "strip") return "\U000f07d6";
+              if (s == "power") return "\U000f0425";
+              if (s == "plug") return "\U000f06a5";
+              if (s == "switch") return "\U000f0521";
+              if (s == "fan") return "\U000f0210";
+              if (s == "ac" || s == "aircon") return "\U000f001b";
+              if (s == "heater" || s == "radiator") return "\U000f0438";
+              if (s == "thermometer" || s == "temp") return "\U000f050f";
+              if (s == "lock") return "\U000f033e";
+              if (s == "unlock") return "\U000f033f";
+              if (s == "door") return "\U000f081a";
+              if (s == "blinds") return "\U000f00ac";
+              if (s == "tv") return "\U000f0502";
+              if (s == "speaker") return "\U000f04c3";
+              if (s == "bell") return "\U000f009a";
+              if (s == "wifi") return "\U000f05a9";
+              if (s == "home") return "\U000f02dc";
+              if (s == "flash") return "\U000f0241";
+              return s;
+            };
+            id(g_gl_glyph)[0] = ic("${glance1_icon}"); id(g_gl_name)[0] = "${glance1_name}";
+            id(g_gl_glyph)[1] = ic("${glance2_icon}"); id(g_gl_name)[1] = "${glance2_name}";
+            id(g_gl_glyph)[2] = ic("${glance3_icon}"); id(g_gl_name)[2] = "${glance3_name}";
+            id(g_gl_glyph)[3] = ic("${glance4_icon}"); id(g_gl_name)[3] = "${glance4_name}";
+            id(g_gl_glyph)[4] = ic("${glance5_icon}"); id(g_gl_name)[4] = "${glance5_name}";
+            id(g_gl_glyph)[5] = ic("${glance6_icon}"); id(g_gl_name)[5] = "${glance6_name}";
+
+globals:
+  - id: g_gl_val
+    type: std::string[6]
+    restore_value: no
+  - id: g_gl_unit
+    type: std::string[6]
+    restore_value: no
+  - id: g_gl_name
+    type: std::string[6]
+    restore_value: no
+  - id: g_gl_glyph
+    type: std::string[6]
+    restore_value: no
+  - id: g_gl_present
+    type: bool[6]
+    restore_value: no
+  - id: g_gl_sel
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+script:
+  - id: gl_render
+    then:
+      - lambda: |-
+          int first = -1;
+          for (int i = 0; i < 6; i++) if (id(g_gl_present)[i]) { first = i; break; }
+          if (first >= 0 && !id(g_gl_present)[id(g_gl_sel)]) id(g_gl_sel) = first;
+      - if:
+          condition: { lambda: 'int c=0; for(int i=0;i<6;i++) if(id(g_gl_present)[i]) c++; return c==0;' }
+          then:
+            - lvgl.widget.show: gl_empty
+            - lvgl.widget.hide: gl_icon
+            - lvgl.widget.hide: gl_value
+            - lvgl.widget.hide: gl_name
+            - lvgl.widget.hide: gl_pos
+          else:
+            - lvgl.widget.hide: gl_empty
+            - lvgl.widget.show: gl_value
+            - lvgl.widget.show: gl_name
+            - lvgl.label.update: { id: gl_icon, text: !lambda 'return id(g_gl_glyph)[id(g_gl_sel)];' }
+            - lvgl.widget.update: { id: gl_icon, hidden: !lambda 'return id(g_gl_glyph)[id(g_gl_sel)].empty();' }
+            - lvgl.label.update:
+                id: gl_value
+                text: !lambda |-
+                  std::string v = id(g_gl_val)[id(g_gl_sel)];
+                  if (v.empty() || v == "unknown" || v == "unavailable") return std::string("--");
+                  std::string u = id(g_gl_unit)[id(g_gl_sel)];
+                  if (!u.empty()) v += " " + u;
+                  return v;
+            - lvgl.label.update: { id: gl_name, text: !lambda 'return id(g_gl_name)[id(g_gl_sel)];' }
+            - lvgl.widget.update: { id: gl_pos, hidden: !lambda 'int c=0; for(int i=0;i<6;i++) if(id(g_gl_present)[i]) c++; return c<=1;' }
+            - lvgl.label.update:
+                id: gl_pos
+                text: !lambda |-
+                  int c=0, pos=0;
+                  for (int i=0;i<6;i++) { if (id(g_gl_present)[i]) { c++; if (i==id(g_gl_sel)) pos=c; } }
+                  char b[12]; snprintf(b, sizeof(b), "%d/%d", pos, c); return std::string(b);
+
+text_sensor:
+  - platform: homeassistant
+    id: gl1_v
+    entity_id: ${glance1_entity}
+    on_value: [ lambda: 'id(g_gl_val)[0]=x; id(g_gl_present)[0]=true;', script.execute: gl_render ]
+  - platform: homeassistant
+    id: gl1_u
+    entity_id: ${glance1_entity}
+    attribute: unit_of_measurement
+    on_value: [ lambda: 'id(g_gl_unit)[0]=x;', script.execute: gl_render ]
+  - platform: homeassistant
+    id: gl2_v
+    entity_id: ${glance2_entity}
+    on_value: [ lambda: 'id(g_gl_val)[1]=x; id(g_gl_present)[1]=true;', script.execute: gl_render ]
+  - platform: homeassistant
+    id: gl2_u
+    entity_id: ${glance2_entity}
+    attribute: unit_of_measurement
+    on_value: [ lambda: 'id(g_gl_unit)[1]=x;', script.execute: gl_render ]
+  - platform: homeassistant
+    id: gl3_v
+    entity_id: ${glance3_entity}
+    on_value: [ lambda: 'id(g_gl_val)[2]=x; id(g_gl_present)[2]=true;', script.execute: gl_render ]
+  - platform: homeassistant
+    id: gl3_u
+    entity_id: ${glance3_entity}
+    attribute: unit_of_measurement
+    on_value: [ lambda: 'id(g_gl_unit)[2]=x;', script.execute: gl_render ]
+  - platform: homeassistant
+    id: gl4_v
+    entity_id: ${glance4_entity}
+    on_value: [ lambda: 'id(g_gl_val)[3]=x; id(g_gl_present)[3]=true;', script.execute: gl_render ]
+  - platform: homeassistant
+    id: gl4_u
+    entity_id: ${glance4_entity}
+    attribute: unit_of_measurement
+    on_value: [ lambda: 'id(g_gl_unit)[3]=x;', script.execute: gl_render ]
+  - platform: homeassistant
+    id: gl5_v
+    entity_id: ${glance5_entity}
+    on_value: [ lambda: 'id(g_gl_val)[4]=x; id(g_gl_present)[4]=true;', script.execute: gl_render ]
+  - platform: homeassistant
+    id: gl5_u
+    entity_id: ${glance5_entity}
+    attribute: unit_of_measurement
+    on_value: [ lambda: 'id(g_gl_unit)[4]=x;', script.execute: gl_render ]
+  - platform: homeassistant
+    id: gl6_v
+    entity_id: ${glance6_entity}
+    on_value: [ lambda: 'id(g_gl_val)[5]=x; id(g_gl_present)[5]=true;', script.execute: gl_render ]
+  - platform: homeassistant
+    id: gl6_u
+    entity_id: ${glance6_entity}
+    attribute: unit_of_measurement
+    on_value: [ lambda: 'id(g_gl_unit)[5]=x;', script.execute: gl_render ]
+
+interval:
+  # Carousel nav: when selected, show the page and take the knob (only if >1 sensor).
+  - interval: 50ms
+    then:
+      - if:
+          condition: { lambda: 'return id(g_nav_req) && id(g_base)==8;' }
+          then:
+            - lambda: 'id(g_nav_req) = false;'
+            - if: { condition: { lambda: 'return id(g_nav_anim)==0;' }, then: [lvgl.page.show: { id: page_sensors, animation: move_left,   time: 250ms }] }
+            - if: { condition: { lambda: 'return id(g_nav_anim)==1;' }, then: [lvgl.page.show: { id: page_sensors, animation: move_right,  time: 250ms }] }
+            - if: { condition: { lambda: 'return id(g_nav_anim)==2;' }, then: [lvgl.page.show: { id: page_sensors, animation: move_top,    time: 250ms }] }
+            - if: { condition: { lambda: 'return id(g_nav_anim)==3;' }, then: [lvgl.page.show: { id: page_sensors, animation: move_bottom, time: 250ms }] }
+            - script.execute: gl_render
+  # Knob cycles between present sensors (capture only when there's more than one).
+  - interval: 120ms
+    then:
+      - if:
+          condition: { lambda: 'return id(g_base)==8;' }
+          then:
+            - lambda: |-
+                int c=0; for (int i=0;i<6;i++) if (id(g_gl_present)[i]) c++;
+                id(g_knob_capture) = (c > 1);
+            - if:
+                condition: { lambda: 'return id(g_knob_delta) != 0;' }
+                then:
+                  - lambda: |-
+                      int d = id(g_knob_delta); id(g_knob_delta) = 0;
+                      int cnt=0; for (int i=0;i<6;i++) if (id(g_gl_present)[i]) cnt++;
+                      if (cnt > 0) {
+                        int step = (d > 0) ? 1 : -1; int n = (d > 0) ? d : -d;
+                        for (int k=0;k<n;k++) { do { id(g_gl_sel) = (id(g_gl_sel)+step+6)%6; } while (!id(g_gl_present)[id(g_gl_sel)]); }
+                      }
+                  - script.execute: gl_render
+
+lvgl:
+  pages:
+    - id: page_sensors
+      bg_color: 0x000000
+      widgets:
+        - label: { id: gl_icon, align: CENTER, y: -70, text: "", text_font: icons34, text_color: 0xBFD2DA }
+        - label: { id: gl_value, align: CENTER, y: -6, width: 320, text_align: CENTER, long_mode: clip, text: "--", text_font: montserrat_34, text_color: 0xFFFFFF }
+        - label: { id: gl_name, align: CENTER, y: 40, width: 300, text_align: CENTER, long_mode: clip, text: "", text_font: font_med, text_color: 0x9FC7BE }
+        - label: { id: gl_pos, align: CENTER, y: 86, text: "", text_font: font_artist, text_color: 0x466761, hidden: true }
+        - label: { id: gl_empty, align: CENTER, text: "Set glance sensors", text_font: font_med, text_color: 0x466761, hidden: true }

@@ -41,9 +41,30 @@ substitutions:
   tile4_entity: light.desk_lamp
   tile4_icon: "power"
   tile4_name: "Tile 4"
+  # Sensors screen (knob cycles): up to 6 read-only HA entities, one shown big at a time.
+  # Set as many glanceN_entity as you want (+ a name, optional icon name); leave the rest at
+  # their default (a non-existent entity) and they're skipped.
+  glance1_entity: sensor.power
+  glance1_name: "Power"
+  glance1_icon: "flash"
+  glance2_entity: sensor.va_glance_unused2
+  glance2_name: ""
+  glance2_icon: ""
+  glance3_entity: sensor.va_glance_unused3
+  glance3_name: ""
+  glance3_icon: ""
+  glance4_entity: sensor.va_glance_unused4
+  glance4_name: ""
+  glance4_icon: ""
+  glance5_entity: sensor.va_glance_unused5
+  glance5_name: ""
+  glance5_icon: ""
+  glance6_entity: sensor.va_glance_unused6
+  glance6_name: ""
+  glance6_icon: ""
   forecast_entity: sensor.va_weekly_forecast   # weather screen forecast (HA helper, see base/screens/weather.ha-helper.yaml)
   # Carousel screen order (left-to-right). Screens not included in the build are skipped.
-  screen_order: "clock,player,timer,cars,space,weather,thermostat,demo"
+  screen_order: "clock,player,timer,cars,space,weather,thermostat,sensors,demo"
 
 esphome:
   name: ${name}
@@ -59,7 +80,7 @@ esphome:
             id(g_order_n) = 0;
             id(g_set_n) = 0;
             id(g_set_labels) = "";
-            for (int i = 0; i < 8; i++) id(g_present)[i] = false;
+            for (int i = 0; i < 16; i++) id(g_present)[i] = false;
             id(g_present)[0] = true;   // clock is always present
             id(g_wgrp_n) = 0; id(g_wgrp_labels) = ""; id(g_wgrp_idx) = 0;
     - priority: 790
@@ -132,7 +153,8 @@ esphome:
               else if (tok == "weather") id = 5;
               else if (tok == "demo") id = 6;
               else if (tok == "thermostat") id = 7;
-              if (id >= 0 && id < 8 && id(g_present)[id]) id(g_order)[id(g_order_n)++] = id;
+              else if (tok == "sensors") id = 8;
+              if (id >= 0 && id < 16 && id(g_present)[id]) id(g_order)[id(g_order_n)++] = id;
               if (comma == std::string::npos) break;
               pos = comma + 1;
             }
@@ -640,7 +662,7 @@ globals:
 
   # --- Modular carousel contract: shared globals so the core never names a screen's symbols ---
   - id: g_order
-    type: int[8]
+    type: int[16]
     restore_value: no
   - id: g_order_n
     type: int
@@ -674,7 +696,7 @@ globals:
     type: std::string
     restore_value: no
   - id: g_present        # which screens registered (by base id); carousel is built from screen_order
-    type: bool[8]
+    type: bool[16]
     restore_value: no
   # --- Example "demo" screen state (read by base/screens/demo.yaml) + a generic tap signal ---
   - id: g_demo_bg        # demo background: false = black, true = white

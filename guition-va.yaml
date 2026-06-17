@@ -49,9 +49,31 @@ substitutions:
   tile4_icon: "power"
   tile4_name: "Socket"
 
+  # Sensors screen (knob cycles): up to 6 read-only HA entities, shown one at a time, big.
+  # Set as many glanceN as you want; leave the rest at their default (a non-existent entity)
+  # and they're skipped. Icon name is optional (same set as the tiles); empty = no icon.
+  glance1_entity: sensor.power
+  glance1_name: "Power"
+  glance1_icon: "flash"
+  glance2_entity: sensor.va_glance_unused2
+  glance2_name: ""
+  glance2_icon: ""
+  glance3_entity: sensor.va_glance_unused3
+  glance3_name: ""
+  glance3_icon: ""
+  glance4_entity: sensor.va_glance_unused4
+  glance4_name: ""
+  glance4_icon: ""
+  glance5_entity: sensor.va_glance_unused5
+  glance5_name: ""
+  glance5_icon: ""
+  glance6_entity: sensor.va_glance_unused6
+  glance6_name: ""
+  glance6_icon: ""
+
   # Carousel order, left to right. Reorder/remove names freely; screens you did not
   # include in "files:" below are skipped automatically.
-  screen_order: "clock,player,timer,cars,space,weather,thermostat,demo"
+  screen_order: "clock,player,timer,cars,space,weather,thermostat,sensors,demo"
 
 packages:
   core:
@@ -68,6 +90,7 @@ packages:
       - base/screens/space-wars.yaml   # optional: Space Wars game
       - base/screens/weather.yaml      # optional: weather (today + 7-day, knob scrolls days)
       - base/screens/thermostat.yaml   # optional: thermostat (climate.* entity; knob sets target, tap on/off)
+      - base/screens/sensors.yaml      # optional: sensors glance (1-6 HA entities, knob cycles)
       - base/screens/demo.yaml         # optional: commented example screen (TAP ME!) + Widgets settings
     refresh: 0s        # always pull the latest beta (set to e.g. 1d once it stabilizes)
 
