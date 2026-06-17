@@ -1,14 +1,34 @@
 # Space Wars - optional carousel screen (base id 4). Vertical shooter.
 # Remove it: drop this file from your config's package "files:" list. Nothing else to edit.
-# Score storage (g_sw_top / g_sw_best) lives in the core config so reset/factory work without this screen.
+# Scores (g_sw_top / g_sw_best) + the "Reset scores" settings action live here - fully self-contained.
 
 esphome:
   on_boot:
     - priority: 660
       then:
         - lambda: 'id(g_present)[4] = true;'   # register after clock/player/timer/cars
+    # Settings (Settings -> Widgets -> Space Wars -> Reset scores) + factory-reset handling.
+    - priority: 650
+      then:
+        - lambda: |-
+            int g = id(g_wgrp_n)++;
+            id(g_wgrp_labels) += (g ? "\n" : ""); id(g_wgrp_labels) += "Space Wars";
+            int o = id(g_wopt_n)++;
+            id(g_wopt_group)[o] = g; id(g_wopt_label)[o] = "Reset scores"; id(g_wopt_kind)[o] = 1; id(g_wopt_ptr)[o] = &id(g_sw_reset);
 
 globals:
+  # --- scores (persistent) + reset flag, owned by this package ---
+  - id: g_sw_best
+    type: int
+    restore_value: yes
+    initial_value: '0'
+  - id: g_sw_top
+    type: int[10]
+    restore_value: yes
+  - id: g_sw_reset    # Widgets "Reset scores" sets this; the watcher below clears the scores
+    type: bool
+    restore_value: no
+    initial_value: 'false'
   # --- Game 2 "Space Wars" (page_game2, g_base==4) ---
   - id: g_sw_state    # 0=menu 1=playing 2=game over 3=how-to 4=scores
     type: int
@@ -219,6 +239,13 @@ script:
             - lvgl.label.update: { id: lbl_sw_s2, text: !lambda 'std::string s; char b[24]; for(int i=5;i<10;i++){ if(i>5) s+="\n"; if(id(g_sw_top)[i]>0){ snprintf(b,sizeof(b),"%d.  %d",i+1,id(g_sw_top)[i]); } else { snprintf(b,sizeof(b),"%d.  -",i+1); } s+=b; } return s;' }
 
 interval:
+  # Reset scores when the Widgets action fired (g_sw_reset). Idempotent + cheap.
+  - interval: 250ms
+    then:
+      - if:
+          condition: { lambda: 'return id(g_sw_reset) || id(g_factory_reset);' }
+          then:
+            - lambda: 'for (int i = 0; i < 10; i++) id(g_sw_top)[i] = 0; id(g_sw_best) = 0; id(g_sw_reset) = false;'
   # nav: show this screen when it is selected in the carousel
   - interval: 50ms
     then:

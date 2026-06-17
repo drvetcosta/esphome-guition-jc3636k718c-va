@@ -1,14 +1,34 @@
 # Cool Cars - optional carousel screen (base id 3). Lane racer.
 # Remove it: drop this file from your config's package "files:" list. Nothing else to edit.
-# Score storage (g_top / g_best) lives in the core config so reset/factory work without this screen.
+# Scores (g_top / g_best) + the "Reset scores" settings action live here - fully self-contained.
 
 esphome:
   on_boot:
     - priority: 670
       then:
         - lambda: 'id(g_present)[3] = true;'   # register after clock/player/timer
+    # Settings (Settings -> Widgets -> Cool Cars -> Reset scores) + factory-reset handling.
+    - priority: 650
+      then:
+        - lambda: |-
+            int g = id(g_wgrp_n)++;
+            id(g_wgrp_labels) += (g ? "\n" : ""); id(g_wgrp_labels) += "Cool Cars";
+            int o = id(g_wopt_n)++;
+            id(g_wopt_group)[o] = g; id(g_wopt_label)[o] = "Reset scores"; id(g_wopt_kind)[o] = 1; id(g_wopt_ptr)[o] = &id(g_cars_reset);
 
 globals:
+  # --- scores (persistent) + reset flag, owned by this package ---
+  - id: g_best
+    type: int
+    restore_value: yes
+    initial_value: '0'
+  - id: g_top
+    type: int[10]
+    restore_value: yes
+  - id: g_cars_reset   # Widgets "Reset scores" sets this; the watcher below clears the scores
+    type: bool
+    restore_value: no
+    initial_value: 'false'
   # --- "Car" game (page_game screen, g_base==3) ---
   - id: g_game_state   # 0=idle 1=playing 2=game over
     type: int
@@ -290,6 +310,13 @@ script:
       - script.execute: game_screen
 
 interval:
+  # Reset scores when the Widgets action fired (g_cars_reset). Idempotent + cheap.
+  - interval: 250ms
+    then:
+      - if:
+          condition: { lambda: 'return id(g_cars_reset) || id(g_factory_reset);' }
+          then:
+            - lambda: 'for (int i = 0; i < 10; i++) id(g_top)[i] = 0; id(g_best) = 0; id(g_cars_reset) = false;'
   # nav: show this screen when it is selected in the carousel
   - interval: 50ms
     then:

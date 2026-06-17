@@ -24,8 +24,26 @@ esphome:
     - priority: 655
       then:
         - lambda: 'id(g_present)[6] = true;'
+    # Register this screen's settings (Settings -> Widgets -> Demo) in the generic registry.
+    - priority: 650
+      then:
+        - lambda: |-
+            int g = id(g_wgrp_n)++;
+            id(g_wgrp_labels) += (g ? "\n" : ""); id(g_wgrp_labels) += "Demo";
+            int o;
+            o = id(g_wopt_n)++; id(g_wopt_group)[o] = g; id(g_wopt_label)[o] = "Border";   id(g_wopt_kind)[o] = 0; id(g_wopt_ptr)[o] = &id(g_demo_border);
+            o = id(g_wopt_n)++; id(g_wopt_group)[o] = g; id(g_wopt_label)[o] = "Demo LED"; id(g_wopt_kind)[o] = 0; id(g_wopt_ptr)[o] = &id(g_demo_led);
 
 globals:
+  # Demo settings (declared here, registered above; the core menu reaches them by pointer).
+  - id: g_demo_border    # draw a border (Settings -> Widgets -> Demo)
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
+  - id: g_demo_led       # drive the LED ring (Settings -> Widgets -> Demo)
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
   # Tap de-duplication: the core bumps g_tap_seq on every normal-mode tap; we
   # remember the last value we handled so one tap = one toggle.
   - id: g_demo_lasttap

@@ -14,8 +14,20 @@ esphome:
     - priority: 655
       then:
         - lambda: 'id(g_present)[5] = true;'   # register the weather screen
+    # Register this screen's settings (Settings -> Widgets -> Weather).
+    - priority: 650
+      then:
+        - lambda: |-
+            int g = id(g_wgrp_n)++;
+            id(g_wgrp_labels) += (g ? "\n" : ""); id(g_wgrp_labels) += "Weather";
+            int o = id(g_wopt_n)++;
+            id(g_wopt_group)[o] = g; id(g_wopt_label)[o] = "Fahrenheit"; id(g_wopt_kind)[o] = 0; id(g_wopt_ptr)[o] = &id(g_wx_fahrenheit);
 
 globals:
+  - id: g_wx_fahrenheit  # show temps in F instead of C (Settings -> Widgets -> Weather)
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
   - id: g_wx_now
     type: int
     restore_value: no
