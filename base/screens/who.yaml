@@ -21,6 +21,15 @@ esphome:
               if (!in.empty() && in[0] >= 'a' && in[0] <= 'z') in[0] -= 32;
               id(g_who_initial)[i] = in;
             }
+            const char* av[6] = { "${person1_avatar_url}", "${person2_avatar_url}", "${person3_avatar_url}", "${person4_avatar_url}", "${person5_avatar_url}", "${person6_avatar_url}" };
+            for (int i = 0; i < 6; i++) {
+              std::string u = av[i];
+              id(g_who_custom)[i] = !u.empty();
+              if (!u.empty()) {
+                if (u.rfind("http", 0) != 0) u = std::string("${ha_base_url}") + u;
+                id(g_who_pic)[i] = u; id(g_who_haspic)[i] = true;   // custom URL overrides the HA photo
+              }
+            }
 
 globals:
   - id: g_who_state
@@ -39,6 +48,12 @@ globals:
     type: bool[6]
     restore_value: no
   - id: g_who_haspic     # entity_picture present
+    type: bool[6]
+    restore_value: no
+  - id: g_who_custom     # a personN_avatar_url override was given (ignore the HA picture)
+    type: bool[6]
+    restore_value: no
+  - id: g_who_loaded     # custom avatar already fetched
     type: bool[6]
     restore_value: no
   - id: g_who_sel        # selected person (shown big at top)
@@ -65,8 +80,18 @@ script:
             id(who_big)->set_url(id(g_who_pic)[s].c_str());
             id(who_big)->update();
           }
+  - id: who_load_custom   # fetch any custom personN_avatar_url avatars (once each)
+    then:
+      - lambda: |-
+          if (id(g_who_custom)[0] && !id(g_who_loaded)[0] && !id(g_who_pic)[0].empty()) { id(who_img0)->set_url(id(g_who_pic)[0].c_str()); id(who_img0)->update(); id(g_who_loaded)[0] = true; }
+          if (id(g_who_custom)[1] && !id(g_who_loaded)[1] && !id(g_who_pic)[1].empty()) { id(who_img1)->set_url(id(g_who_pic)[1].c_str()); id(who_img1)->update(); id(g_who_loaded)[1] = true; }
+          if (id(g_who_custom)[2] && !id(g_who_loaded)[2] && !id(g_who_pic)[2].empty()) { id(who_img2)->set_url(id(g_who_pic)[2].c_str()); id(who_img2)->update(); id(g_who_loaded)[2] = true; }
+          if (id(g_who_custom)[3] && !id(g_who_loaded)[3] && !id(g_who_pic)[3].empty()) { id(who_img3)->set_url(id(g_who_pic)[3].c_str()); id(who_img3)->update(); id(g_who_loaded)[3] = true; }
+          if (id(g_who_custom)[4] && !id(g_who_loaded)[4] && !id(g_who_pic)[4].empty()) { id(who_img4)->set_url(id(g_who_pic)[4].c_str()); id(who_img4)->update(); id(g_who_loaded)[4] = true; }
+          if (id(g_who_custom)[5] && !id(g_who_loaded)[5] && !id(g_who_pic)[5].empty()) { id(who_img5)->set_url(id(g_who_pic)[5].c_str()); id(who_img5)->update(); id(g_who_loaded)[5] = true; }
   - id: who_render
     then:
+      - script.execute: who_load_custom
       - lambda: |-
           // ensure selection is on a present person
           int n = 0, first = -1;
@@ -151,7 +176,7 @@ text_sensor:
     id: who_p0
     entity_id: ${person1_entity}
     attribute: entity_picture
-    on_value: [ lambda: 'std::string u=x; if(!u.empty() && u.rfind("http",0)!=0) u=std::string("${ha_base_url}")+u; id(g_who_pic)[0]=u; id(g_who_haspic)[0]=!u.empty(); if(!u.empty()){ id(who_img0)->set_url(u.c_str()); id(who_img0)->update(); }', script.execute: who_render ]
+    on_value: [ lambda: 'std::string u=x; if(!u.empty() && u.rfind("http",0)!=0) u=std::string("${ha_base_url}")+u; if(id(g_who_custom)[0]) return; id(g_who_pic)[0]=u; id(g_who_haspic)[0]=!u.empty(); if(!u.empty()){ id(who_img0)->set_url(u.c_str()); id(who_img0)->update(); }', script.execute: who_render ]
   - platform: homeassistant
     id: who_s1
     entity_id: ${person2_entity}
@@ -160,7 +185,7 @@ text_sensor:
     id: who_p1
     entity_id: ${person2_entity}
     attribute: entity_picture
-    on_value: [ lambda: 'std::string u=x; if(!u.empty() && u.rfind("http",0)!=0) u=std::string("${ha_base_url}")+u; id(g_who_pic)[1]=u; id(g_who_haspic)[1]=!u.empty(); if(!u.empty()){ id(who_img1)->set_url(u.c_str()); id(who_img1)->update(); }', script.execute: who_render ]
+    on_value: [ lambda: 'std::string u=x; if(!u.empty() && u.rfind("http",0)!=0) u=std::string("${ha_base_url}")+u; if(id(g_who_custom)[1]) return; id(g_who_pic)[1]=u; id(g_who_haspic)[1]=!u.empty(); if(!u.empty()){ id(who_img1)->set_url(u.c_str()); id(who_img1)->update(); }', script.execute: who_render ]
   - platform: homeassistant
     id: who_s2
     entity_id: ${person3_entity}
@@ -169,7 +194,7 @@ text_sensor:
     id: who_p2
     entity_id: ${person3_entity}
     attribute: entity_picture
-    on_value: [ lambda: 'std::string u=x; if(!u.empty() && u.rfind("http",0)!=0) u=std::string("${ha_base_url}")+u; id(g_who_pic)[2]=u; id(g_who_haspic)[2]=!u.empty(); if(!u.empty()){ id(who_img2)->set_url(u.c_str()); id(who_img2)->update(); }', script.execute: who_render ]
+    on_value: [ lambda: 'std::string u=x; if(!u.empty() && u.rfind("http",0)!=0) u=std::string("${ha_base_url}")+u; if(id(g_who_custom)[2]) return; id(g_who_pic)[2]=u; id(g_who_haspic)[2]=!u.empty(); if(!u.empty()){ id(who_img2)->set_url(u.c_str()); id(who_img2)->update(); }', script.execute: who_render ]
   - platform: homeassistant
     id: who_s3
     entity_id: ${person4_entity}
@@ -178,7 +203,7 @@ text_sensor:
     id: who_p3
     entity_id: ${person4_entity}
     attribute: entity_picture
-    on_value: [ lambda: 'std::string u=x; if(!u.empty() && u.rfind("http",0)!=0) u=std::string("${ha_base_url}")+u; id(g_who_pic)[3]=u; id(g_who_haspic)[3]=!u.empty(); if(!u.empty()){ id(who_img3)->set_url(u.c_str()); id(who_img3)->update(); }', script.execute: who_render ]
+    on_value: [ lambda: 'std::string u=x; if(!u.empty() && u.rfind("http",0)!=0) u=std::string("${ha_base_url}")+u; if(id(g_who_custom)[3]) return; id(g_who_pic)[3]=u; id(g_who_haspic)[3]=!u.empty(); if(!u.empty()){ id(who_img3)->set_url(u.c_str()); id(who_img3)->update(); }', script.execute: who_render ]
   - platform: homeassistant
     id: who_s4
     entity_id: ${person5_entity}
@@ -187,7 +212,7 @@ text_sensor:
     id: who_p4
     entity_id: ${person5_entity}
     attribute: entity_picture
-    on_value: [ lambda: 'std::string u=x; if(!u.empty() && u.rfind("http",0)!=0) u=std::string("${ha_base_url}")+u; id(g_who_pic)[4]=u; id(g_who_haspic)[4]=!u.empty(); if(!u.empty()){ id(who_img4)->set_url(u.c_str()); id(who_img4)->update(); }', script.execute: who_render ]
+    on_value: [ lambda: 'std::string u=x; if(!u.empty() && u.rfind("http",0)!=0) u=std::string("${ha_base_url}")+u; if(id(g_who_custom)[4]) return; id(g_who_pic)[4]=u; id(g_who_haspic)[4]=!u.empty(); if(!u.empty()){ id(who_img4)->set_url(u.c_str()); id(who_img4)->update(); }', script.execute: who_render ]
   - platform: homeassistant
     id: who_s5
     entity_id: ${person6_entity}
@@ -196,7 +221,7 @@ text_sensor:
     id: who_p5
     entity_id: ${person6_entity}
     attribute: entity_picture
-    on_value: [ lambda: 'std::string u=x; if(!u.empty() && u.rfind("http",0)!=0) u=std::string("${ha_base_url}")+u; id(g_who_pic)[5]=u; id(g_who_haspic)[5]=!u.empty(); if(!u.empty()){ id(who_img5)->set_url(u.c_str()); id(who_img5)->update(); }', script.execute: who_render ]
+    on_value: [ lambda: 'std::string u=x; if(!u.empty() && u.rfind("http",0)!=0) u=std::string("${ha_base_url}")+u; if(id(g_who_custom)[5]) return; id(g_who_pic)[5]=u; id(g_who_haspic)[5]=!u.empty(); if(!u.empty()){ id(who_img5)->set_url(u.c_str()); id(who_img5)->update(); }', script.execute: who_render ]
 
 interval:
   - interval: 50ms

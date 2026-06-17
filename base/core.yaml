@@ -63,18 +63,26 @@ substitutions:
   glance6_name: ""
   glance6_icon: ""
   # Who's home screen: up to 6 person.* entities (avatar from entity_picture + name). Unused = skipped.
+  # personN_avatar_url: optional custom avatar that OVERRIDES the HA photo. Must be a PNG, square,
+  # ideally 64x64 (it's resized to 64 anyway). Leave empty to use the person's HA picture / initials.
   person1_entity: person.you
   person1_name: "You"
+  person1_avatar_url: ""
   person2_entity: person.va_unused2
   person2_name: ""
+  person2_avatar_url: ""
   person3_entity: person.va_unused3
   person3_name: ""
+  person3_avatar_url: ""
   person4_entity: person.va_unused4
   person4_name: ""
+  person4_avatar_url: ""
   person5_entity: person.va_unused5
   person5_name: ""
+  person5_avatar_url: ""
   person6_entity: person.va_unused6
   person6_name: ""
+  person6_avatar_url: ""
   forecast_entity: sensor.va_weekly_forecast   # weather screen forecast (HA helper, see base/screens/weather.ha-helper.yaml)
   # Carousel screen order (left-to-right). Screens not included in the build are skipped.
   screen_order: "clock,player,timer,cars,space,weather,thermostat,sensors,who,demo"
