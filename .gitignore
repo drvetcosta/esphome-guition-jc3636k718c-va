@@ -5,6 +5,9 @@ secrets.yaml
 .esphome/
 *.bin
 
+# Demo recordings (host README/wiki videos via GitHub attachments, not in-repo)
+*.mp4
+
 # Python
 __pycache__/
 *.pyc

@@ -4,7 +4,7 @@
 # full name, its temperatures and its condition. Turn the knob to move the highlight.
 #
 # The forecast comes from a Home Assistant helper sensor (HA no longer exposes the forecast
-# as an attribute). Add screens/weather.ha-helper.yaml to your HA config; it publishes
+# as an attribute). Add base/screens/weather.ha-helper.yaml to your HA config; it publishes
 # ${forecast_entity} as "condition,high,low,DayName|..." (one segment per day).
 #
 # Remove it: drop this file from your config's package "files:" list.

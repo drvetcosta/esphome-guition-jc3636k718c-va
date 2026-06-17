@@ -48,19 +48,31 @@ Full docs live in the **[wiki](https://github.com/MichalZaniewicz/esphome-guitio
 ## Quick start
 
 1. Copy `secrets.example.yaml` → `secrets.yaml` and fill in your Wi-Fi.
-2. Edit the `substitutions:` at the top of `guition-va.yaml` (HA URL + your entity IDs).
-3. Images and sounds are **fetched from GitHub at compile time** (like the fonts), so you do not have to copy the `assets/` folder anywhere - only `guition-va.yaml` and `partitions.csv` need to sit together.
+2. Copy **`guition-va.yaml`** and **`partitions.csv`** so they sit together with `secrets.yaml`. Edit the `substitutions:` at the top of `guition-va.yaml` (HA URL + your entity IDs + the four control tiles). That thin file is the only firmware file you keep - the core and all screens are **pulled from GitHub at compile time** (see its `packages:` block), as are the fonts, images and sounds.
+3. Choose which screens compile in via the `files:` list and their left-to-right order via `screen_order`, both in `guition-va.yaml`.
 4. **First flash over USB** - easiest via the **ESPHome dashboard** (GUI) or the CLI; the 16 MB partition table can't be set over OTA, so the first flash is USB, then updates go wireless.
 5. In Home Assistant: open the new ESPHome device → assign an Assist pipeline.
+
+To pull the latest changes later: `esphome clean guition-va.yaml` (clears the package cache) then `esphome run guition-va.yaml`.
 
 Full details on the [Installation](https://github.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/wiki/Installation) wiki page.
 
 ## Repository layout
 
 ```
-guition-va.yaml            # the whole device config (English UI)
-partitions.csv             # 16 MB partition table (MAX app slots)
+guition-va.yaml            # YOUR config: copy + edit this (pulls everything else from GitHub)
+partitions.csv             # 16 MB partition table (keep next to guition-va.yaml)
 secrets.example.yaml       # copy to secrets.yaml
+base/                      # pulled as a remote package at compile time (no need to copy)
+  core.yaml                # always-on core: clock, controls (swipe-up tiles), settings menu
+  screens/                 # optional carousel screens (toggle each in guition-va.yaml)
+    player.yaml            #   music player (album art + transport)
+    timer.yaml             #   timer screen in the carousel
+    cool-cars.yaml         #   "Cool Cars" game
+    space-wars.yaml        #   "Space Wars" game
+    weather.yaml           #   weather (today + 7-day radial dial)
+    demo.yaml              #   commented example screen
+    weather.ha-helper.yaml #   HA template sensor that feeds the weather screen
 assets/                    # fetched from GitHub at compile time (no need to copy locally)
   header.jpg               # banner
   sounds/                  # wake.wav + alarm.wav

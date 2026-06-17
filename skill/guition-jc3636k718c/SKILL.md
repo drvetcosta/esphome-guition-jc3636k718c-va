@@ -4,7 +4,7 @@ description: >
   Reference for building/editing ESPHome configs on the Guition JC3636K718C round
   knob display (ESP32-S3, 1.8" 360x360 ST77916, CST816 touch, rotary knob, PCM5100A
   DAC, PDM mic, WS2812 LED ring). Use whenever working on this board (or the
-  guition-va.yaml in this repo): correct pinout, ESPHome component choices, and the
+  base/core.yaml in this repo): correct pinout, ESPHome component choices, and the
   hard-won gotchas (knob isn't quadrature, GPIO0 ring strapping, 16 MB partitions need
   USB flash, LVGL performance limits, lambda/string pitfalls, battery is heuristic).
 ---
@@ -42,7 +42,7 @@ microSD (SD_MMC):        CLK=39 CMD=38 D0=40 D1=41 D2=48 D3=47
 
 - **Display:** `display: platform: qspi_dbi`, `model: CUSTOM`, `data_rate: 80MHz`,
   `invert_colors: true`, `color_order: rgb`, with the full `init_sequence` from
-  `guition-va.yaml` (ends with `3A=55` for RGB565, `21` invert, `11` sleep-out,
+  `base/core.yaml` (ends with `3A=55` for RGB565, `21` invert, `11` sleep-out,
   120 ms delay, `29` display-on). The native ST77916 model was dev-only; CUSTOM +
   manual init runs on stable ESPHome.
 - **SPI:** `type: quad`, `clk_pin: 11`, `data_pins: [13,14,15,16]`. **CS/RST go on the
@@ -116,7 +116,7 @@ microSD (SD_MMC):        CLK=39 CMD=38 D0=40 D1=41 D2=48 D3=47
     `python scripts/esplog.py <seconds>` (set the device host in the script). Don't reflash
     blind - check logs / HA state first.
 
-## Architecture of this repo's `guition-va.yaml` (for edits)
+## Architecture of this repo's `base/core.yaml` (for edits)
 
 - Single big file. UI is **LVGL pages** (not a top_layer overlay for modes):
   `page_home`, `page_player`, `page_mode` (menu/timer/alarm/settings sub-screens),

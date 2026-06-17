@@ -1,4 +1,4 @@
-# Home Assistant helper for the device's Weather screen (screens/weather.yaml).
+# Home Assistant helper for the device's Weather screen (base/screens/weather.yaml).
 #
 # HA no longer exposes a weather entity's multi-day forecast as an attribute, so this
 # template calls weather.get_forecasts and publishes a single compact sensor the device

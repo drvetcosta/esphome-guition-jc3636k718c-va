@@ -3,7 +3,7 @@
 # Unlike the other screens, the timer cannot be a full standalone package: its logic is
 # wired into core components (the voice_assistant on_timer_* triggers, the shared alarm
 # overlay, timer_render, the home-screen badge, the knob). So the timer FEATURE always
-# lives in guition-va.yaml. This tiny package only adds the timer SCREEN to the swipe
+# lives in base/core.yaml. This tiny package only adds the timer SCREEN to the swipe
 # carousel (base id 2).
 #
 # Remove this file from your config's package "files:" list to hide the timer screen from

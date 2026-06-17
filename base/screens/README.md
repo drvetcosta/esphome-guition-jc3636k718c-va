@@ -9,18 +9,24 @@ config.
 
 ## How you choose screens
 
-Top of `guition-va.yaml`:
+You keep one thin file locally (`guition-va.yaml`, repo root) that pulls the core and the
+screens from GitHub as a remote package. Pick screens in its `files:` list:
 
 ```yaml
 packages:
-  # core (clock + player) is always in the main file
-  timer: !include screens/timer.yaml
-  cars:  !include screens/cool-cars.yaml
-  space: !include screens/space-wars.yaml   # comment out to drop Space Wars
+  core:
+    url: https://github.com/MichalZaniewicz/esphome-guition-jc3636k718c-va
+    ref: beta
+    files:
+      - base/core.yaml                 # always on (clock + controls + settings)
+      - base/screens/timer.yaml
+      - base/screens/cool-cars.yaml
+      - base/screens/space-wars.yaml   # comment out to drop Space Wars
+    refresh: 0s
 ```
 
-Remove/comment a line -> that screen's page, scripts, globals and game tick are not
-compiled, and its carousel slot disappears. Nothing else to edit.
+Remove/comment a `base/screens/*.yaml` line -> that screen's page, scripts, globals and
+game tick are not compiled, and its carousel slot disappears. Nothing else to edit.
 
 ## How it stays decoupled (the contract)
 
@@ -54,12 +60,12 @@ handler. It reads/writes only the shared core globals above.
 - [x] core refactor: data-driven carousel (`g_order`), nav via `g_nav_req`, knob via
       `g_knob_capture`/`g_knob_delta`. Score storage (`g_top`/`g_best`/`g_sw_top`/`g_sw_best`)
       stays in the core so reset/factory work without the game screens.
-- [x] extract Space Wars -> `screens/space-wars.yaml`
-- [x] extract Cool Cars -> `screens/cool-cars.yaml`
-- [x] extract Player -> `screens/player.yaml` (volume + overlay stay in core)
-- [x] timer carousel-screen toggle -> `screens/timer.yaml` (voice timers/alarm/badge stay in core)
-- [x] new Weather screen -> `screens/weather.yaml` (radial 7-day dial, knob highlights the day;
-      forecast from the HA helper `screens/weather.ha-helper.yaml`)
+- [x] extract Space Wars -> `base/screens/space-wars.yaml`
+- [x] extract Cool Cars -> `base/screens/cool-cars.yaml`
+- [x] extract Player -> `base/screens/player.yaml` (volume + overlay stay in core)
+- [x] timer carousel-screen toggle -> `base/screens/timer.yaml` (voice timers/alarm/badge stay in core)
+- [x] new Weather screen -> `base/screens/weather.yaml` (radial 7-day dial, knob highlights the day;
+      forecast from the HA helper `base/screens/weather.ha-helper.yaml`)
 - [x] settings ownership: home-screen widget toggles moved to a "Home" submenu (core); "Display"
       keeps only global brightness/night/screen-off
 - [x] carousel order via the `screen_order` substitution; screens register `g_present`,
