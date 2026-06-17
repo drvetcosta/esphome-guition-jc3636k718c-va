@@ -1,0 +1,122 @@
+# ============================================================================
+# DEMO / EXAMPLE SCREEN  (base id 6, carousel name "demo")
+# ----------------------------------------------------------------------------
+# A minimal, heavily-commented screen that shows how a screen package is built:
+#   * it registers itself in the carousel (g_present),
+#   * it shows its own LVGL page,
+#   * it reacts to a tap (toggles the background black <-> white, text inverts),
+#   * it reads two toggles that live in the CORE config (Settings -> Widgets):
+#         g_demo_border  -> draw a border
+#         g_demo_led     -> drive the LED ring (green on white bg, red on black bg)
+#   * it drives the LED ring directly (a simple demo - it bypasses the ring
+#     reaction-priority system in the core; that is fine for an example).
+#
+# Anything a screen needs lives in THIS file (globals/scripts/interval/lvgl page),
+# except the shared toggles which are core globals so the Settings menu can reach
+# them even when this screen is not included. Remove the screen by dropping this
+# file from the package "files:" list - nothing else to edit.
+# ============================================================================
+
+esphome:
+  on_boot:
+    # Register this screen so the carousel knows it exists. The core builds the
+    # carousel order from `screen_order`, including only screens that set g_present.
+    - priority: 655
+      then:
+        - lambda: 'id(g_present)[6] = true;'
+
+globals:
+  # Tap de-duplication: the core bumps g_tap_seq on every normal-mode tap; we
+  # remember the last value we handled so one tap = one toggle.
+  - id: g_demo_lasttap
+    type: int
+    restore_value: no
+    initial_value: '0'
+  # Tracks whether WE currently own the LED ring, so we can release it on leave.
+  - id: g_demo_ring_on
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+script:
+  # Redraws the screen from the three state flags (g_demo_bg / border / led).
+  - id: demo_render
+    then:
+      # background + text colour (text is the inverse of the background)
+      - if:
+          condition: { lambda: 'return id(g_demo_bg);' }       # white background
+          then:
+            - lvgl.widget.update: { id: demo_bg,  bg_color: 0xFFFFFF, border_color: 0x000000 }
+            - lvgl.label.update:  { id: demo_lbl, text_color: 0x000000 }
+          else:                                                  # black background
+            - lvgl.widget.update: { id: demo_bg,  bg_color: 0x000000, border_color: 0xFFFFFF }
+            - lvgl.label.update:  { id: demo_lbl, text_color: 0xFFFFFF }
+      # border on/off (width is an int, so a lambda is fine here)
+      - lvgl.widget.update: { id: demo_bg, border_width: !lambda 'return id(g_demo_border) ? 6 : 0;' }
+      # LED ring: green when the background is white, red when it is black
+      - if:
+          condition: { lambda: 'return id(g_demo_led);' }
+          then:
+            - if:
+                condition: { lambda: 'return id(g_demo_bg);' }
+                then: [ light.turn_on: { id: ring_light, red: 0%,   green: 100%, blue: 0%, effect: "None" } ]
+                else: [ light.turn_on: { id: ring_light, red: 100%, green: 0%,   blue: 0%, effect: "None" } ]
+            - lambda: 'id(g_demo_ring_on) = true;'
+          else:
+            # LED toggle is off: release the ring if we were driving it
+            - if:
+                condition: { lambda: 'return id(g_demo_ring_on);' }
+                then:
+                  - light.turn_off: ring_light
+                  - lambda: 'id(g_demo_ring_on) = false;'
+
+interval:
+  # Carousel navigation: when this screen becomes selected, show its page.
+  - interval: 50ms
+    then:
+      - if:
+          condition: { lambda: 'return id(g_nav_req) && id(g_base)==6;' }
+          then:
+            - lambda: 'id(g_nav_req) = false; id(g_demo_lasttap) = id(g_tap_seq);'   # sync tap counter so arriving never counts as a tap
+            - if: { condition: { lambda: 'return id(g_nav_anim)==0;' }, then: [lvgl.page.show: { id: page_demo, animation: move_left,   time: 250ms }] }
+            - if: { condition: { lambda: 'return id(g_nav_anim)==1;' }, then: [lvgl.page.show: { id: page_demo, animation: move_right,  time: 250ms }] }
+            - if: { condition: { lambda: 'return id(g_nav_anim)==2;' }, then: [lvgl.page.show: { id: page_demo, animation: move_top,    time: 250ms }] }
+            - if: { condition: { lambda: 'return id(g_nav_anim)==3;' }, then: [lvgl.page.show: { id: page_demo, animation: move_bottom, time: 250ms }] }
+            - script.execute: demo_render
+  # React to a tap while this screen is on top; release the LED when we leave.
+  - interval: 80ms
+    then:
+      - if:
+          condition: { lambda: 'return id(g_base)==6 && id(g_tap_seq) != id(g_demo_lasttap);' }
+          then:
+            - lambda: 'id(g_demo_lasttap) = id(g_tap_seq); id(g_demo_bg) = !id(g_demo_bg);'   # one tap = flip background
+            - script.execute: demo_render
+      - if:
+          condition: { lambda: 'return id(g_base) != 6 && id(g_demo_ring_on);' }
+          then:
+            - light.turn_off: ring_light
+            - lambda: 'id(g_demo_ring_on) = false;'
+
+lvgl:
+  pages:
+    - id: page_demo
+      bg_color: 0x000000
+      widgets:
+        # A full circle that fills the round screen - this is the background we recolour.
+        # radius 180 on a 360x360 box makes it a circle, so the optional border is a clean ring.
+        - obj:
+            id: demo_bg
+            align: CENTER
+            width: 360
+            height: 360
+            radius: 180
+            bg_color: 0x000000
+            bg_opa: COVER
+            border_width: 0
+            border_color: 0xFFFFFF
+        - label:
+            id: demo_lbl
+            align: CENTER
+            text: "TAP ME!"
+            text_font: montserrat_34
+            text_color: 0xFFFFFF

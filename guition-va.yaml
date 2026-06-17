@@ -24,7 +24,7 @@ substitutions:
   led_entity: light.led_strip
   # Carousel screen order (left-to-right). Screens not included in the build are skipped.
   forecast_entity: sensor.va_weekly_forecast   # HA helper sensor (see screens/weather.ha-helper.yaml)
-  screen_order: "clock,player,timer,cars,space,weather"
+  screen_order: "clock,player,timer,cars,space,weather,demo"
 
 esphome:
   name: ${name}
@@ -49,6 +49,7 @@ esphome:
             // core settings entries: label + the g_mode each opens. Packages add their own.
             id(g_set_labels) += "Display";    id(g_set_items)[id(g_set_n)++] = 11;
             id(g_set_labels) += "\nHome";       id(g_set_items)[id(g_set_n)++] = 12;
+            id(g_set_labels) += "\nWidgets";    id(g_set_items)[id(g_set_n)++] = 17;
             id(g_set_labels) += "\nRing";      id(g_set_items)[id(g_set_n)++] = 16;
             id(g_set_labels) += "\nAssistant"; id(g_set_items)[id(g_set_n)++] = 13;
     - priority: 605
@@ -77,6 +78,7 @@ System"; id(g_set_items)[id(g_set_n)++] = 15;'   # always last
               else if (tok == "cars") id = 3;
               else if (tok == "space") id = 4;
               else if (tok == "weather") id = 5;
+              else if (tok == "demo") id = 6;
               if (id >= 0 && id < 8 && id(g_present)[id]) id(g_order)[id(g_order_n)++] = id;
               if (comma == std::string::npos) break;
               pos = comma + 1;
@@ -626,6 +628,23 @@ globals:
   - id: g_present        # which screens registered (by base id); carousel is built from screen_order
     type: bool[8]
     restore_value: no
+  # --- Example "demo" screen state (read by screens/demo.yaml) + a generic tap signal ---
+  - id: g_demo_bg        # demo background: false = black, true = white
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: g_demo_border    # demo: draw a border (toggled in Settings -> Widgets)
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
+  - id: g_demo_led       # demo: drive the LED ring (toggled in Settings -> Widgets)
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
+  - id: g_tap_seq        # bumped on every normal-mode tap; screens watch it to react
+    type: int
+    restore_value: no
+    initial_value: '0'
 
 # Shows the volume arc for ~2 s while turning the knob, then hides it (mode: restart)
 script:
@@ -758,6 +777,7 @@ script:
             - lvgl.widget.hide: sys_roller
             - lvgl.widget.hide: ring_roller
             - lvgl.widget.hide: home_roller
+            - lvgl.widget.hide: wid_roller
           else:
             - lvgl.widget.show: ui_dim
             - lvgl.widget.show: ui_head_bg
@@ -819,6 +839,14 @@ script:
                   - lvgl.widget.show: disp_switch
                   - lvgl.widget.update: { id: disp_switch, state: { checked: !lambda 'return id(g_sub_idx) == 0 ? id(g_show_weather) : id(g_show_climate);' } }
                 else: [ lvgl.widget.hide: home_roller ]
+            - if:   # Widgets (17): per-screen widget toggles (currently the demo screen)
+                condition: { lambda: 'return id(g_mode) == 17;' }
+                then:
+                  - lvgl.widget.show: wid_roller
+                  - lvgl.roller.update: { id: wid_roller, animated: true, selected_index: !lambda 'return id(g_sub_idx);' }
+                  - lvgl.widget.show: disp_switch
+                  - lvgl.widget.update: { id: disp_switch, state: { checked: !lambda 'return id(g_sub_idx) == 0 ? id(g_demo_border) : id(g_demo_led);' } }
+                else: [ lvgl.widget.hide: wid_roller ]
             - if:   # Assistant (13): both items = toggles (0=wake word, 1=beep)
                 condition: { lambda: 'return id(g_mode) == 13;' }
                 then:
@@ -852,7 +880,7 @@ script:
                           return id(g_ring_vol_en);
                 else: [ lvgl.widget.hide: ring_roller ]
             - if:   # we hide ui_big in the list (5), info (7), wake word (8), Display (11)
-                condition: { lambda: 'return id(g_mode) == 5 || id(g_mode) == 7 || id(g_mode) == 9 || id(g_mode) == 11 || id(g_mode) == 12 || id(g_mode) == 13 || id(g_mode) == 14 || id(g_mode) == 15 || id(g_mode) == 16 || id(g_mode) == 21 || id(g_mode) == 22;' }
+                condition: { lambda: 'return id(g_mode) == 5 || id(g_mode) == 7 || id(g_mode) == 9 || id(g_mode) == 11 || id(g_mode) == 12 || id(g_mode) == 13 || id(g_mode) == 14 || id(g_mode) == 15 || id(g_mode) == 16 || id(g_mode) == 17 || id(g_mode) == 21 || id(g_mode) == 22;' }
                 then: [lvgl.widget.hide: ui_big]
                 else: [lvgl.widget.show: ui_big]
             - lvgl.label.update:
@@ -899,6 +927,7 @@ script:
                   if (m == 14) return std::string("GAMES");
                   if (m == 15) return std::string("SYSTEM");
                   if (m == 16) return std::string("RING");
+                  if (m == 17) return std::string("WIDGETS");
                   if (m == 21) return std::string("SCORES");
                   if (m == 23) return std::string("BATTERY");
                   if (m == 24) return std::string("SCREEN OFF");
@@ -1196,7 +1225,7 @@ binary_sensor:
           else:
             - if:
                 condition:
-                  lambda: 'return id(g_mode) == 5 || id(g_mode) == 11 || (id(g_mode) >= 12 && id(g_mode) <= 16);'
+                  lambda: 'return id(g_mode) == 5 || id(g_mode) == 11 || (id(g_mode) >= 12 && id(g_mode) <= 17);'
                 then:
                   - lambda: |-
                       if (id(g_mode) == 11) { if (id(g_disp_idx) > 0) id(g_disp_idx)--; }
@@ -1250,12 +1279,12 @@ binary_sensor:
           else:
             - if:
                 condition:
-                  lambda: 'return id(g_mode) == 5 || id(g_mode) == 11 || (id(g_mode) >= 12 && id(g_mode) <= 16);'
+                  lambda: 'return id(g_mode) == 5 || id(g_mode) == 11 || (id(g_mode) >= 12 && id(g_mode) <= 17);'
                 then:
                   - lambda: |-
                       if (id(g_mode) == 11) { if (id(g_disp_idx) < 4) id(g_disp_idx)++; }
                       else if (id(g_mode) == 5) { if (id(g_set_idx) < id(g_set_n) - 1) id(g_set_idx)++; }
-                      else { int mx = (id(g_mode) == 15) ? 3 : (id(g_mode) == 13) ? 1 : (id(g_mode) == 16) ? 3 : (id(g_mode) == 12) ? 1 : 0; if (id(g_sub_idx) < mx) id(g_sub_idx)++; }
+                      else { int mx = (id(g_mode) == 15) ? 3 : (id(g_mode) == 13) ? 1 : (id(g_mode) == 16) ? 3 : (id(g_mode) == 12) ? 1 : (id(g_mode) == 17) ? 1 : 0; if (id(g_sub_idx) < mx) id(g_sub_idx)++; }
                   - script.execute: ui_render
                 else:
                   - if:
@@ -1456,6 +1485,9 @@ touchscreen:
         condition:
           lambda: 'return id(g_mode0) == 0;'
         then:
+          - if:   # tap -> bump a generic signal so the active screen can react (e.g. demo)
+              condition: { lambda: 'return id(g_gesture) == 0;' }
+              then: [ lambda: 'id(g_tap_seq)++;' ]
           - if:   # swipe up -> controls (light tiles)
               condition:
                 lambda: 'return id(g_gesture) == 4;'
@@ -1614,6 +1646,13 @@ touchscreen:
         then:
           - if: { condition: { lambda: 'return id(g_gesture) == 0 && id(g_sub_idx) == 0;' }, then: [ lambda: 'id(g_show_weather) = !id(g_show_weather);', script.execute: disp_apply, script.execute: ui_render ] }
           - if: { condition: { lambda: 'return id(g_gesture) == 0 && id(g_sub_idx) == 1;' }, then: [ lambda: 'id(g_show_climate) = !id(g_show_climate);', script.execute: disp_apply, script.execute: ui_render ] }
+          - if: { condition: { lambda: 'return id(g_gesture) == 3 || id(g_gesture) == 1;' }, then: [ lambda: 'id(g_mode) = 5;', script.execute: ui_render ] }
+    # === WIDGETS (17) === tap toggles the selected option; right/hold = back
+    - if:
+        condition: { lambda: 'return id(g_mode0) == 17;' }
+        then:
+          - if: { condition: { lambda: 'return id(g_gesture) == 0 && id(g_sub_idx) == 0;' }, then: [ lambda: 'id(g_demo_border) = !id(g_demo_border);', script.execute: ui_render ] }
+          - if: { condition: { lambda: 'return id(g_gesture) == 0 && id(g_sub_idx) == 1;' }, then: [ lambda: 'id(g_demo_led) = !id(g_demo_led);', script.execute: ui_render ] }
           - if: { condition: { lambda: 'return id(g_gesture) == 3 || id(g_gesture) == 1;' }, then: [ lambda: 'id(g_mode) = 5;', script.execute: ui_render ] }
     # === ASSISTANT (13) === tap: 0=toggle wake word, 1=toggle beep; right/hold=back
     - if:
@@ -2261,7 +2300,7 @@ lvgl:
             align: CENTER
             x: 22
             y: -92
-            text: ""
+            text: "-"
             text_font: font_med
             text_color: 0xE8E8EA
             hidden: true
@@ -2279,7 +2318,7 @@ lvgl:
             align: CENTER
             x: -52
             y: 78
-            text: ""
+            text: "-"
             text_font: font_med
             text_color: 0xE8E8EA
             hidden: true
@@ -2297,7 +2336,7 @@ lvgl:
             align: CENTER
             x: 56
             y: 78
-            text: ""
+            text: "-"
             text_font: font_med
             text_color: 0xE8E8EA
             hidden: true
@@ -2424,6 +2463,27 @@ lvgl:
             options:
               - "Weather"
               - "Climate"
+            selected_index: 0
+            hidden: true
+        - roller:
+            id: wid_roller
+            align: CENTER
+            y: -14
+            width: 290
+            visible_row_count: 3
+            clickable: false
+            text_font: font_med
+            text_color: 0x466761
+            bg_opa: TRANSP
+            border_width: 0
+            selected:
+              text_color: 0xFFFFFF
+              bg_color: 0xFFB020
+              bg_opa: 30%
+              radius: 10
+            options:
+              - "Border"
+              - "Demo LED"
             selected_index: 0
             hidden: true
         - roller:
