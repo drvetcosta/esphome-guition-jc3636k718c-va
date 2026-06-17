@@ -136,6 +136,10 @@ esphome:
         - script.execute: night_apply    # brightness per g_bright / night mode
         - script.execute: disp_apply     # show/hide weather + temp/humidity per settings
         - script.execute: settings_build # push the dynamic settings list into the roller
+        - lvgl.label.update: { id: tile1_ic, text: !lambda 'return id(g_tile1_glyph);' }   # tiles get their icon glyph now (set at priority 760)
+        - lvgl.label.update: { id: tile2_ic, text: !lambda 'return id(g_tile2_glyph);' }
+        - lvgl.label.update: { id: tile3_ic, text: !lambda 'return id(g_tile3_glyph);' }
+        - lvgl.label.update: { id: tile4_ic, text: !lambda 'return id(g_tile4_glyph);' }
 
 esp32:
   board: esp32-s3-devkitc-1
@@ -2859,7 +2863,7 @@ lvgl:
             on_click:
               - homeassistant.action: { action: homeassistant.toggle, data: { entity_id: "${tile1_entity}" } }
             widgets:
-              - label: { align: CENTER, y: -16, text: !lambda 'return id(g_tile1_glyph);', text_font: icons34, text_color: 0xFFFFFF }
+              - label: { id: tile1_ic, align: CENTER, y: -16, text: "", text_font: icons34, text_color: 0xFFFFFF }
               - label: { align: CENTER, y: 26, width: 100, long_mode: wrap, text_align: CENTER, text: "${tile1_name}", text_font: font_artist, text_color: 0xFFFFFF }
         - button:
             id: tile2
@@ -2875,7 +2879,7 @@ lvgl:
             on_click:
               - homeassistant.action: { action: homeassistant.toggle, data: { entity_id: "${tile2_entity}" } }
             widgets:
-              - label: { align: CENTER, y: -16, text: !lambda 'return id(g_tile2_glyph);', text_font: icons34, text_color: 0xFFFFFF }
+              - label: { id: tile2_ic, align: CENTER, y: -16, text: "", text_font: icons34, text_color: 0xFFFFFF }
               - label: { align: CENTER, y: 26, width: 100, long_mode: wrap, text_align: CENTER, text: "${tile2_name}", text_font: font_artist, text_color: 0xFFFFFF }
         - button:
             id: tile3
@@ -2891,7 +2895,7 @@ lvgl:
             on_click:
               - homeassistant.action: { action: homeassistant.toggle, data: { entity_id: "${tile3_entity}" } }
             widgets:
-              - label: { align: CENTER, y: -16, text: !lambda 'return id(g_tile3_glyph);', text_font: icons34, text_color: 0xFFFFFF }
+              - label: { id: tile3_ic, align: CENTER, y: -16, text: "", text_font: icons34, text_color: 0xFFFFFF }
               - label: { align: CENTER, y: 26, width: 100, long_mode: wrap, text_align: CENTER, text: "${tile3_name}", text_font: font_artist, text_color: 0xFFFFFF }
         - button:
             id: tile4
@@ -2907,5 +2911,5 @@ lvgl:
             on_click:
               - homeassistant.action: { action: homeassistant.toggle, data: { entity_id: "${tile4_entity}" } }
             widgets:
-              - label: { align: CENTER, y: -16, text: !lambda 'return id(g_tile4_glyph);', text_font: icons34, text_color: 0xFFFFFF }
+              - label: { id: tile4_ic, align: CENTER, y: -16, text: "", text_font: icons34, text_color: 0xFFFFFF }
               - label: { align: CENTER, y: 26, width: 100, long_mode: wrap, text_align: CENTER, text: "${tile4_name}", text_font: font_artist, text_color: 0xFFFFFF }
