@@ -2,42 +2,44 @@
 # Generates base/screens/snake.yaml (modular carousel screen, base id 9). Run from anywhere:
 #   python scripts/gen_snake.py
 #
-# Free 360-degree snake (slither-style): the head has a heading angle the knob rotates; it moves
-# forward every tick and the body is a chain of segments that each follow the one ahead at a fixed
-# distance. Play area = the whole round screen bounded by a green ring; the snake passes under the
-# score HUD. Up to 3 fruit (random sprites) are kept on the board, replenished over time (faster
-# when only one is left); up to 2 skulls appear for a while and end the game if eaten.
+# Free 360-degree snake. The head glides every tick (knob rotates its heading); the body is a TRAIL
+# of dots the head lays down every SEG_DIST of travel. Dots do NOT move once placed - each tick only
+# the head moves and (when the head has advanced one SEG_DIST) one dot is added at the head + one
+# dropped at the tail. So the per-tick render cost is CONSTANT (~1-2 widgets) regardless of snake
+# length - which keeps the main loop fast enough not to starve the knob input (a chain-follow body
+# that moved every segment every tick made turning degrade as the snake grew).
 #
-# Body/fruit/skull widgets are a fixed pool (LVGL can't address a widget by a runtime index); each
-# tick we set their positions/visibility from the float position globals.
+# Body dots are a fixed ring buffer of widgets (g_sn_tx/g_sn_ty, index g_sn_head = newest). LVGL
+# can't address a widget by a runtime index, so add/drop are done with a compile-time dispatch
+# (one `if slot==k` per pool slot; only the matching one acts).
 import os
 
-POOL = 40          # max body segments = number of segment widgets
-SEG  = 9           # segment square (px)
-SEGR = 4           # segment corner radius
-SEG_DIST = 7.0     # spacing between segments (px)
+POOL = 56          # max body dots = number of body widgets
+SEG  = 9           # dot square (px)
+SEGR = 4           # dot corner radius
+SEG_DIST = 8.0     # spacing between trail dots (px)
 R    = 168.0       # max head distance from centre (inside the ring)
-RING_D = 344       # ring diameter (radius 172) -> sits just inside the 360 round display
+RING_D = 344       # ring diameter (radius 172) -> just inside the 360 round display
 SPEED0 = 3.2       # head speed px/tick (50ms tick)
 TURN = 0.26        # radians turned per knob detent
 EAT  = 12.0        # head-to-fruit distance that counts as eating
 SKHIT = 13.0       # head-to-skull distance that kills
-SELF_SKIP = 16     # body segments near the head skipped in self-collision (the neck; margin vs tight turns)
-SELF_DIST = 6.0    # head-to-body distance that kills
+SELF_SKIP = 6      # newest body dots skipped in self-collision (the neck)
+SELF_DIST = 8.0    # head-to-body distance that kills (~ the two 9px sprites touching)
+GROW = 3           # body dots added per fruit eaten
+START_LEN = 5
 
-NFRUIT = 12        # fruit sprites in the rotation (img_sn_fruit0..N-1)
-NFSLOT = 3         # max fruit on the board at once
-NSKULL = 2         # max skulls at once
+NFRUIT = 12        # fruit sprites in the rotation
+NFSLOT = 3         # max fruit on the board
+NSKULL = 2         # max skulls
 FRUIT_WAIT = 90    # ticks between fruit top-ups (~4.5s); halved when only 1 fruit is left
 SKULL_WAIT = 200   # ticks between skull spawns (~10s)
 SKULL_LIFE = 220   # ticks a skull stays (~11s)
 
-# sprites hosted on the beta branch during development (flip to /main/ at merge).
 BASE = "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/snake/"
 
-# --- palette from snake-logo.png (green mosaic + dark navy wordmark) ---
 PAGE_BG  = "0x0D1E15"
-RING     = "0x3A8C4E"   # boundary ring (clear green)
+RING     = "0x3A8C4E"
 HEAD     = "0xB8E86A"
 BODY     = "0x52A049"
 ACCENT   = "0xA6D85F"
@@ -48,79 +50,16 @@ GRAY     = "0x3A3A3D"
 TXT      = "0xC6DCC0"
 BADGE    = "0x6FB23F"
 HUD      = "0xCFEAE4"
-WORDMARK = "0x12212D"   # dark navy of the logo "SNAKE" wordmark (readable on the logo backdrop)
+WORDMARK = "0x12212D"
+
+M = POOL * 4   # safe positive-modulo offset
 
 
-def seg_widgets():
-    out = []
-    for i in range(POOL):
-        col = HEAD if i == 0 else BODY
-        out.append(
-            f"        - obj: {{ id: sn_s{i}, align: CENTER, x: 0, y: 0, width: {SEG}, height: {SEG}, "
-            f"radius: {SEGR}, border_width: 0, bg_color: {col}, bg_opa: COVER, hidden: true }}"
-        )
-    return "\n".join(out)
-
-
-def seg_updates():
-    out = []
-    for i in range(POOL):
-        out.append(
-f"""      - lvgl.widget.update:
-          id: sn_s{i}
-          hidden: !lambda 'return id(g_sn_len) <= {i};'
-          x: !lambda 'return (int) lroundf(id(g_sn_x)[{i}]);'
-          y: !lambda 'return (int) lroundf(id(g_sn_y)[{i}]);'""")
-    return "\n".join(out)
-
-
-def item_updates():
-    out = []
-    for s in range(NFSLOT):
-        out.append(
-f"""      - lvgl.widget.update:
-          id: sn_fruit{s}
-          hidden: !lambda 'return !id(g_sn_fon)[{s}];'
-          x: !lambda 'return (int) lroundf(id(g_sn_fx)[{s}]);'
-          y: !lambda 'return (int) lroundf(id(g_sn_fy)[{s}]);'""")
-    for s in range(NSKULL):
-        out.append(
-f"""      - lvgl.widget.update:
-          id: sn_skull{s}
-          hidden: !lambda 'return !id(g_sn_skon)[{s}];'
-          x: !lambda 'return (int) lroundf(id(g_sn_skx)[{s}]);'
-          y: !lambda 'return (int) lroundf(id(g_sn_sky)[{s}]);'""")
-    return "\n".join(out)
-
-
-def clear_hides():
-    out = [f"      - lvgl.widget.hide: sn_s{i}" for i in range(POOL)]
-    out += [f"      - lvgl.widget.hide: sn_fruit{s}" for s in range(NFSLOT)]
-    out += [f"      - lvgl.widget.hide: sn_skull{s}" for s in range(NSKULL)]
-    return "\n".join(out)
-
-
-def fruit_setters():
-    blocks = []
-    for s in range(NFSLOT):
-        lines = [f"  - id: sn_fspr{s}", "    then:"]
-        for k in range(NFRUIT):
-            lines.append(
-                f"      - if: {{ condition: {{ lambda: 'return id(g_sn_fi)[{s}] == {k};' }}, "
-                f"then: [ lvgl.image.update: {{ id: sn_fruit{s}, src: img_sn_fruit{k} }} ] }}")
-        blocks.append("\n".join(lines))
-    return "\n".join(blocks)
-
-
-def fruit_images():
-    out = []
-    for k in range(NFRUIT):
-        out.append(
-f"""  - id: img_sn_fruit{k}
-    file: "{BASE}fruit{k}.png"
-    type: RGB565
-    transparency: alpha_channel""")
-    return "\n".join(out)
+def body_widgets():
+    return "\n".join(
+        f"        - obj: {{ id: sn_seg{k}, align: CENTER, x: 0, y: 0, width: {SEG}, height: {SEG}, "
+        f"radius: {SEGR}, border_width: 0, bg_color: {BODY}, bg_opa: COVER, hidden: true }}"
+        for k in range(POOL))
 
 
 def fruit_widgets():
@@ -135,24 +74,102 @@ def skull_widgets():
         for s in range(NSKULL))
 
 
+def add_dispatch():
+    return "\n".join(
+        f"                        - if: {{ condition: {{ lambda: 'return id(g_sn_add) == {k};' }}, "
+        f"then: [ lvgl.widget.update: {{ id: sn_seg{k}, hidden: false, "
+        f"x: !lambda 'return (int) lroundf(id(g_sn_tx)[{k}]);', "
+        f"y: !lambda 'return (int) lroundf(id(g_sn_ty)[{k}]);' }} ] }}"
+        for k in range(POOL))
+
+
+def del_dispatch():
+    return "\n".join(
+        f"                        - if: {{ condition: {{ lambda: 'return id(g_sn_del) == {k};' }}, "
+        f"then: [ lvgl.widget.hide: sn_seg{k} ] }}"
+        for k in range(POOL))
+
+
 def fspr_dispatch():
     return "\n".join(
-        f"                        - if: {{ condition: {{ lambda: 'return id(g_sn_newfruit) == {s};' }}, then: [ script.execute: sn_fspr{s} ] }}"
+        f"                        - if: {{ condition: {{ lambda: 'return id(g_sn_newfruit) == {s};' }}, "
+        f"then: [ script.execute: sn_fspr{s} ] }}"
         for s in range(NFSLOT))
+
+
+def skull_dispatch():
+    return "\n".join(
+        f"                        - if: {{ condition: {{ lambda: 'return id(g_sn_newskull) == {s};' }}, "
+        f"then: [ lvgl.widget.update: {{ id: sn_skull{s}, hidden: false, "
+        f"x: !lambda 'return (int) lroundf(id(g_sn_skx)[{s}]);', "
+        f"y: !lambda 'return (int) lroundf(id(g_sn_sky)[{s}]);' }} ] }}"
+        for s in range(NSKULL))
+
+
+def drawfull_body():
+    out = []
+    for k in range(POOL):
+        out.append(
+f"""      - lvgl.widget.update:
+          id: sn_seg{k}
+          hidden: !lambda 'return ((id(g_sn_head) - {k} + {M}) % {POOL}) >= id(g_sn_len);'
+          x: !lambda 'return (int) lroundf(id(g_sn_tx)[{k}]);'
+          y: !lambda 'return (int) lroundf(id(g_sn_ty)[{k}]);'""")
+    return "\n".join(out)
+
+
+def clear_hides():
+    out = ["      - lvgl.widget.hide: sn_head"]
+    out += [f"      - lvgl.widget.hide: sn_seg{k}" for k in range(POOL)]
+    out += [f"      - lvgl.widget.hide: sn_fruit{s}" for s in range(NFSLOT)]
+    out += [f"      - lvgl.widget.hide: sn_skull{s}" for s in range(NSKULL)]
+    return "\n".join(out)
+
+
+def items_hidden():
+    out = []
+    for s in range(NFSLOT):
+        out.append(f"      - lvgl.widget.update: {{ id: sn_fruit{s}, hidden: !lambda 'return !id(g_sn_fon)[{s}];' }}")
+    for s in range(NSKULL):
+        out.append(f"      - lvgl.widget.update: {{ id: sn_skull{s}, hidden: !lambda 'return !id(g_sn_skon)[{s}];' }}")
+    return "\n".join(out)
+
+
+def fruit_setters():
+    blocks = []
+    for s in range(NFSLOT):
+        lines = [f"  - id: sn_fspr{s}", "    then:",
+                 f"      - lvgl.widget.update: {{ id: sn_fruit{s}, hidden: false, "
+                 f"x: !lambda 'return (int) lroundf(id(g_sn_fx)[{s}]);', "
+                 f"y: !lambda 'return (int) lroundf(id(g_sn_fy)[{s}]);' }}"]
+        for k in range(NFRUIT):
+            lines.append(
+                f"      - if: {{ condition: {{ lambda: 'return id(g_sn_fi)[{s}] == {k};' }}, "
+                f"then: [ lvgl.image.update: {{ id: sn_fruit{s}, src: img_sn_fruit{k} }} ] }}")
+        blocks.append("\n".join(lines))
+    return "\n".join(blocks)
+
+
+def fruit_images():
+    return "\n".join(
+f"""  - id: img_sn_fruit{k}
+    file: "{BASE}fruit{k}.png"
+    type: RGB565
+    transparency: alpha_channel""" for k in range(NFRUIT))
 
 
 YAML = f"""# Snake - optional carousel screen (base id 9). Free 360-degree snake steered by the knob.
 # Remove it: drop this file from your config's package "files:" list. Nothing else to edit.
 # Scores (g_sn_top / g_sn_best) + the "Reset scores" settings action live here - fully self-contained.
 #
-# This file is GENERATED by scripts/gen_snake.py (the {POOL}-segment body pool, fruit rotation and
-# their per-tick updates are repetitive). Edit the generator, not the blocks.
+# GENERATED by scripts/gen_snake.py - edit the generator, not the blocks. Body = a trail of dots
+# (ring buffer) so per-tick render cost is constant regardless of length (keeps the knob responsive).
 
 esphome:
   on_boot:
     - priority: 655
       then:
-        - lambda: 'id(g_present)[9] = true;'   # register after clock/player/timer/cars/space
+        - lambda: 'id(g_present)[9] = true;'
     - priority: 650
       then:
         - lambda: |-
@@ -162,7 +179,6 @@ esphome:
             id(g_wopt_group)[o] = g; id(g_wopt_label)[o] = "Reset scores"; id(g_wopt_kind)[o] = 1; id(g_wopt_ptr)[o] = &id(g_sn_reset);
 
 globals:
-  # --- scores (persistent) + reset flag ---
   - id: g_sn_best
     type: int
     restore_value: yes
@@ -174,55 +190,78 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
-  # --- game state ---
   - id: g_sn_state    # 0=menu 1=playing 2=game over 3=how-to 4=scores
     type: int
     restore_value: no
     initial_value: '0'
-  - id: g_sn_len      # live body segments
+  - id: g_sn_len      # body dots in the snake
     type: int
     restore_value: no
-    initial_value: '5'
+    initial_value: '{START_LEN}'
   - id: g_sn_score
     type: int
     restore_value: no
     initial_value: '0'
-  - id: g_sn_x        # segment X (centre coords, px); [0] = head
+  - id: g_sn_tx       # body trail dots X (ring buffer; centre coords px)
     type: float[{POOL}]
     restore_value: no
-  - id: g_sn_y
+  - id: g_sn_ty
     type: float[{POOL}]
     restore_value: no
+  - id: g_sn_head     # ring index of the newest dot
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_sn_hx       # smooth head position (leads the newest dot)
+    type: float
+    restore_value: no
+    initial_value: '0.0'
+  - id: g_sn_hy
+    type: float
+    restore_value: no
+    initial_value: '0.0'
   - id: g_sn_ang      # heading (radians)
     type: float
     restore_value: no
     initial_value: '0.0'
+  - id: g_sn_grow     # pending growth (appends that won't drop the tail)
+    type: int
+    restore_value: no
+    initial_value: '0'
   - id: g_sn_dead
     type: bool
     restore_value: no
     initial_value: 'false'
-  # --- fruit slots (up to {NFSLOT}) ---
+  - id: g_sn_add      # ring slot to show/position this tick (-1 none)
+    type: int
+    restore_value: no
+    initial_value: '-1'
+  - id: g_sn_del      # ring slot to hide this tick (-1 none)
+    type: int
+    restore_value: no
+    initial_value: '-1'
+  # fruit slots
   - id: g_sn_fx
     type: float[{NFSLOT}]
     restore_value: no
   - id: g_sn_fy
     type: float[{NFSLOT}]
     restore_value: no
-  - id: g_sn_fi       # sprite index per slot
+  - id: g_sn_fi
     type: int[{NFSLOT}]
     restore_value: no
-  - id: g_sn_fon      # slot occupied
+  - id: g_sn_fon
     type: bool[{NFSLOT}]
     restore_value: no
-  - id: g_sn_fclk     # fruit spawn clock (ticks)
+  - id: g_sn_fclk
     type: int
     restore_value: no
     initial_value: '0'
-  - id: g_sn_newfruit # slot that just spawned and needs its sprite set (-1 = none)
+  - id: g_sn_newfruit
     type: int
     restore_value: no
     initial_value: '-1'
-  # --- skull slots (up to {NSKULL}) ---
+  # skull slots
   - id: g_sn_skx
     type: float[{NSKULL}]
     restore_value: no
@@ -232,50 +271,58 @@ globals:
   - id: g_sn_skon
     type: bool[{NSKULL}]
     restore_value: no
-  - id: g_sn_skage    # per-skull lifetime counter (ticks)
+  - id: g_sn_skage
     type: int[{NSKULL}]
     restore_value: no
-  - id: g_sn_skclk    # skull spawn clock (ticks)
+  - id: g_sn_skclk
     type: int
     restore_value: no
     initial_value: '0'
+  - id: g_sn_newskull
+    type: int
+    restore_value: no
+    initial_value: '-1'
 
 script:
 {fruit_setters()}
-  # HUD: current score.
   - id: sn_hud
     then:
       - lvgl.label.update: {{ id: lbl_sn_score, text: !lambda 'char b[12]; snprintf(b,sizeof(b),"%d",id(g_sn_score)); return std::string(b);' }}
-  # Draw the body + fruit + skulls from the position globals (called every tick + on screen change).
-  - id: sn_draw
+  # toggle fruit/skull visibility from their on-flags (positions are set on spawn)
+  - id: sn_items
     then:
-{item_updates()}
-{seg_updates()}
-  # Hide all gameplay widgets (when leaving the play state).
+{items_hidden()}
+  # full body redraw - used at start / when (re)entering the play screen (NOT per tick)
+  - id: sn_drawfull
+    then:
+      - lvgl.widget.update: {{ id: sn_head, hidden: false, x: !lambda 'return (int) lroundf(id(g_sn_hx));', y: !lambda 'return (int) lroundf(id(g_sn_hy));' }}
+{drawfull_body()}
+      - script.execute: sn_items
+  # hide every gameplay widget (when leaving play)
   - id: sn_clear
     then:
 {clear_hides()}
-  # Start / restart a game.
   - id: sn_start
     then:
       - lambda: |-
           id(g_sn_state) = 1; id(g_sn_score) = 0; id(g_sn_dead) = false;
-          id(g_sn_len) = 5; id(g_sn_ang) = -1.5708f;   // heading up
-          for (int i = 0; i < {POOL}; i++) {{ id(g_sn_x)[i] = 0.0f; id(g_sn_y)[i] = i * {SEG_DIST}f; }}
+          id(g_sn_ang) = -1.5708f; id(g_sn_grow) = 0;            // heading up
+          id(g_sn_len) = {START_LEN}; id(g_sn_head) = {START_LEN - 1};
+          for (int i = 0; i < {POOL}; i++) {{ id(g_sn_tx)[i] = 0.0f; id(g_sn_ty)[i] = 0.0f; }}
+          for (int k = 0; k < {START_LEN}; k++) {{ id(g_sn_tx)[k] = 0.0f; id(g_sn_ty)[k] = ({START_LEN - 1} - k) * {SEG_DIST}f; }}
+          id(g_sn_hx) = 0.0f; id(g_sn_hy) = 0.0f;
           for (int s = 0; s < {NFSLOT}; s++) id(g_sn_fon)[s] = false;
           for (int s = 0; s < {NSKULL}; s++) {{ id(g_sn_skon)[s] = false; id(g_sn_skage)[s] = 0; }}
-          id(g_sn_fclk) = 0; id(g_sn_skclk) = 0; id(g_sn_newfruit) = -1;
+          id(g_sn_fclk) = 0; id(g_sn_skclk) = 0;
+          id(g_sn_newfruit) = -1; id(g_sn_newskull) = -1; id(g_sn_add) = -1; id(g_sn_del) = -1;
           id(g_knob_capture) = true; id(g_knob_delta) = 0;
-          // first fruit in slot 0
-          float a = (esp_random() % 62832) / 10000.0f;
-          float rad = 60.0f + (esp_random() % 80);
-          id(g_sn_fx)[0] = cosf(a) * rad; id(g_sn_fy)[0] = sinf(a) * rad;
+          float a = (esp_random() % 62832) / 10000.0f; float rad = 60.0f + (esp_random() % 80);
+          id(g_sn_fx)[0] = cosf(a)*rad; id(g_sn_fy)[0] = sinf(a)*rad;
           id(g_sn_fi)[0] = esp_random() % {NFRUIT}; id(g_sn_fon)[0] = true;
       - script.execute: sn_fspr0
       - script.execute: sn_screen
-      - script.execute: sn_draw
+      - script.execute: sn_drawfull
       - script.execute: sn_hud
-  # Game over: save the score into best + top 10 (knob stays captured here -> no volume).
   - id: sn_over
     then:
       - lambda: |-
@@ -290,12 +337,10 @@ script:
             }}
           }}
       - script.execute: sn_screen
-  # Show the right widgets per state. Also the single knob-capture authority:
-  # captured (no volume) only while playing + on game over; free in menu/how-to/scores.
+  # screen state + the single knob-capture authority (captured only in play + game over)
   - id: sn_screen
     then:
       - lambda: 'id(g_knob_capture) = (id(g_sn_state) == 1 || id(g_sn_state) == 2);'
-      # 1) hide everything
       - lvgl.widget.hide: sn_ring
       - script.execute: sn_clear
       - lvgl.widget.hide: lbl_sn_score
@@ -320,7 +365,6 @@ script:
       - lvgl.widget.hide: lbl_sn_scores1
       - lvgl.widget.hide: lbl_sn_scores2
       - lvgl.widget.hide: btn_sn_back
-      # 2) show per state
       - if:   # MENU
           condition: {{ lambda: 'return id(g_sn_state) == 0;' }}
           then:
@@ -333,7 +377,7 @@ script:
           then:
             - lvgl.widget.show: sn_ring
             - lvgl.widget.show: lbl_sn_score
-            - script.execute: sn_draw
+            - script.execute: sn_drawfull
       - if:   # GAME OVER
           condition: {{ lambda: 'return id(g_sn_state) == 2;' }}
           then:
@@ -378,14 +422,12 @@ script:
                   return s;
 
 interval:
-  # Reset scores when the Widgets action fired (g_sn_reset) or on factory reset.
   - interval: 250ms
     then:
       - if:
           condition: {{ lambda: 'return id(g_sn_reset) || id(g_factory_reset);' }}
           then:
             - lambda: 'for (int i = 0; i < 10; i++) id(g_sn_top)[i] = 0; id(g_sn_best) = 0; id(g_sn_reset) = false;'
-  # nav: show this screen when it is selected in the carousel
   - interval: 50ms
     then:
       - if:
@@ -397,54 +439,52 @@ interval:
             - if: {{ condition: {{ lambda: 'return id(g_nav_anim)==2;' }}, then: [lvgl.page.show: {{ id: page_snake, animation: move_top,    time: 250ms }}] }}
             - if: {{ condition: {{ lambda: 'return id(g_nav_anim)==3;' }}, then: [lvgl.page.show: {{ id: page_snake, animation: move_bottom, time: 250ms }}] }}
             - script.execute: sn_screen
-  # Game tick: steer, move the head, drag the body, handle fruit/skulls + collisions.
+  # Game tick: steer + glide head; lay/drop one trail dot when the head advanced SEG_DIST.
   - interval: 50ms
     then:
       - if:
           condition: {{ lambda: 'return id(g_base) == 9 && id(g_sn_state) == 1;' }}
           then:
             - lambda: |-
-                // steer (knob detents rotate the heading)
+                id(g_sn_add) = -1; id(g_sn_del) = -1; id(g_sn_newfruit) = -1; id(g_sn_newskull) = -1;
                 int kd = id(g_knob_delta); id(g_knob_delta) = 0;
                 id(g_sn_ang) += kd * {TURN}f;
                 float spd = {SPEED0}f + id(g_sn_score) / 400.0f; if (spd > 5.5f) spd = 5.5f;
-                // move head forward
-                float hx = id(g_sn_x)[0] + cosf(id(g_sn_ang)) * spd;
-                float hy = id(g_sn_y)[0] + sinf(id(g_sn_ang)) * spd;
+                float hx = id(g_sn_hx) + cosf(id(g_sn_ang)) * spd;
+                float hy = id(g_sn_hy) + sinf(id(g_sn_ang)) * spd;
                 if (hx*hx + hy*hy > {R}f * {R}f) {{ id(g_sn_dead) = true; }}   // hit the ring
                 else {{
-                  id(g_sn_x)[0] = hx; id(g_sn_y)[0] = hy;
-                  int len = id(g_sn_len);
-                  // body chain: each segment trails the previous at SEG_DIST
-                  for (int i = 1; i < len; i++) {{
-                    float dx = id(g_sn_x)[i-1] - id(g_sn_x)[i], dy = id(g_sn_y)[i-1] - id(g_sn_y)[i];
-                    float d = sqrtf(dx*dx + dy*dy);
-                    if (d > 0.0001f) {{ id(g_sn_x)[i] = id(g_sn_x)[i-1] - dx/d*{SEG_DIST}f; id(g_sn_y)[i] = id(g_sn_y)[i-1] - dy/d*{SEG_DIST}f; }}
-                  }}
-                  // self collision (skip the neck)
+                  id(g_sn_hx) = hx; id(g_sn_hy) = hy;
+                  int len = id(g_sn_len), head = id(g_sn_head);
+                  // self collision: head vs body dots (skip the neck)
                   for (int i = {SELF_SKIP}; i < len; i++) {{
-                    float dx = hx - id(g_sn_x)[i], dy = hy - id(g_sn_y)[i];
+                    int sl = (head - i + {M}) % {POOL};
+                    float dx = hx - id(g_sn_tx)[sl], dy = hy - id(g_sn_ty)[sl];
                     if (dx*dx + dy*dy < {SELF_DIST}f * {SELF_DIST}f) {{ id(g_sn_dead) = true; break; }}
                   }}
-                  // skull collision (fatal)
+                  // skulls (fatal)
                   for (int s = 0; s < {NSKULL}; s++) if (id(g_sn_skon)[s]) {{
                     float dx = hx - id(g_sn_skx)[s], dy = hy - id(g_sn_sky)[s];
                     if (dx*dx + dy*dy < {SKHIT}f * {SKHIT}f) {{ id(g_sn_dead) = true; }}
                   }}
-                  // eat fruit
+                  // eat fruit -> grow
                   for (int s = 0; s < {NFSLOT} && !id(g_sn_dead); s++) if (id(g_sn_fon)[s]) {{
                     float dx = hx - id(g_sn_fx)[s], dy = hy - id(g_sn_fy)[s];
-                    if (dx*dx + dy*dy < {EAT}f * {EAT}f) {{
-                      id(g_sn_fon)[s] = false;
-                      id(g_sn_score) += 10;
-                      int nl = id(g_sn_len) + 1; if (nl > {POOL}) nl = {POOL};
-                      id(g_sn_x)[nl-1] = id(g_sn_x)[id(g_sn_len)-1]; id(g_sn_y)[nl-1] = id(g_sn_y)[id(g_sn_len)-1];
-                      id(g_sn_len) = nl;
+                    if (dx*dx + dy*dy < {EAT}f * {EAT}f) {{ id(g_sn_fon)[s] = false; id(g_sn_score) += 10; id(g_sn_grow) += {GROW}; }}
+                  }}
+                  // lay a trail dot once the head has advanced one SEG_DIST
+                  if (!id(g_sn_dead)) {{
+                    float dx = hx - id(g_sn_tx)[head], dy = hy - id(g_sn_ty)[head];
+                    if (dx*dx + dy*dy >= {SEG_DIST}f * {SEG_DIST}f) {{
+                      int nh = (head + 1) % {POOL};
+                      id(g_sn_tx)[nh] = hx; id(g_sn_ty)[nh] = hy;
+                      id(g_sn_head) = nh; id(g_sn_add) = nh;
+                      if (id(g_sn_grow) > 0 && id(g_sn_len) < {POOL}) {{ id(g_sn_grow)--; id(g_sn_len)++; id(g_sn_del) = -1; }}
+                      else {{ if (id(g_sn_grow) > 0) id(g_sn_grow)--; id(g_sn_del) = (head - id(g_sn_len) + 1 + {M}) % {POOL}; }}
                     }}
                   }}
                 }}
                 if (!id(g_sn_dead)) {{
-                  // keep up to {NFSLOT} fruit on the board; sooner when only one is left
                   int fc = 0; for (int s = 0; s < {NFSLOT}; s++) if (id(g_sn_fon)[s]) fc++;
                   id(g_sn_fclk)++;
                   int wait = (fc <= 1) ? {FRUIT_WAIT // 2} : {FRUIT_WAIT};
@@ -457,7 +497,6 @@ interval:
                       id(g_sn_fi)[sl] = esp_random() % {NFRUIT}; id(g_sn_fon)[sl] = true; id(g_sn_newfruit) = sl;
                     }}
                   }}
-                  // skulls: up to {NSKULL}, each lives a while
                   int sc = 0; for (int s = 0; s < {NSKULL}; s++) if (id(g_sn_skon)[s]) sc++;
                   id(g_sn_skclk)++;
                   if (sc < {NSKULL} && id(g_sn_skclk) >= {SKULL_WAIT}) {{
@@ -466,7 +505,7 @@ interval:
                     if (sl >= 0) {{
                       float a = (esp_random() % 62832) / 10000.0f; float rad = 30.0f + (esp_random() % 130);
                       id(g_sn_skx)[sl] = cosf(a)*rad; id(g_sn_sky)[sl] = sinf(a)*rad;
-                      id(g_sn_skon)[sl] = true; id(g_sn_skage)[sl] = 0;
+                      id(g_sn_skon)[sl] = true; id(g_sn_skage)[sl] = 0; id(g_sn_newskull) = sl;
                     }}
                   }}
                   for (int s = 0; s < {NSKULL}; s++) if (id(g_sn_skon)[s]) {{ id(g_sn_skage)[s]++; if (id(g_sn_skage)[s] >= {SKULL_LIFE}) id(g_sn_skon)[s] = false; }}
@@ -480,13 +519,24 @@ interval:
                       condition: {{ lambda: 'return id(g_sn_newfruit) >= 0;' }}
                       then:
 {fspr_dispatch()}
-                        - lambda: 'id(g_sn_newfruit) = -1;'
-                  - script.execute: sn_hud    # every tick: score changes on eat, not only on spawn
-                  - script.execute: sn_draw
+                  - if:
+                      condition: {{ lambda: 'return id(g_sn_newskull) >= 0;' }}
+                      then:
+{skull_dispatch()}
+                  - if:
+                      condition: {{ lambda: 'return id(g_sn_add) >= 0;' }}
+                      then:
+{add_dispatch()}
+                  - if:
+                      condition: {{ lambda: 'return id(g_sn_del) >= 0;' }}
+                      then:
+{del_dispatch()}
+                  - lvgl.widget.update: {{ id: sn_head, hidden: false, x: !lambda 'return (int) lroundf(id(g_sn_hx));', y: !lambda 'return (int) lroundf(id(g_sn_hy));' }}
+                  - script.execute: sn_items
+                  - script.execute: sn_hud
 
 image:
   - id: img_sn_logo
-    # Hosted on the beta branch during development (flip to /main/ when snake is merged to main).
     file: "{BASE}snake-logo.png"
     type: RGB565
 {fruit_images()}
@@ -497,21 +547,17 @@ image:
 
 lvgl:
   pages:
-    # --- SNAKE page (base id 9): free 360-degree snake, full round screen bounded by a ring ---
     - id: page_snake
       bg_color: {PAGE_BG}
       scrollbar_mode: "off"
       scrollable: false
       widgets:
-        # boundary ring (full-screen circle just inside the round display)
         - obj: {{ id: sn_ring, align: CENTER, x: 0, y: 0, width: {RING_D}, height: {RING_D}, radius: {RING_D // 2}, bg_opa: TRANSP, border_width: 4, border_color: {RING}, hidden: true }}
-        # fruit ({NFSLOT}) + skulls ({NSKULL}) + body segment pool ({POOL}). sn_s0 = head.
 {fruit_widgets()}
 {skull_widgets()}
-{seg_widgets()}
-        # HUD (snake passes under it)
+{body_widgets()}
+        - obj: {{ id: sn_head, align: CENTER, x: 0, y: 0, width: {SEG}, height: {SEG}, radius: {SEGR}, border_width: 0, bg_color: {HEAD}, bg_opa: COVER, hidden: true }}
         - label: {{ id: lbl_sn_score, align: CENTER, x: 0, y: -150, text: "0", text_font: font_med, text_color: {HUD}, hidden: true }}
-        # --- MENU (state 0): full-screen logo + 3 stacked buttons ---
         - image: {{ id: sn_logo, align: CENTER, x: 0, y: 0, src: img_sn_logo, hidden: true }}
         - button:
             id: btn_sn_start
@@ -552,7 +598,6 @@ lvgl:
             on_click: [ lambda: 'id(g_sn_state) = 4;', script.execute: sn_screen ]
             widgets:
               - label: {{ align: CENTER, text: "Scores", text_font: font_med, text_color: {BTN2_TXT} }}
-        # --- GAME OVER (state 2): dark text over the logo ---
         - label: {{ id: lbl_sn_over, align: CENTER, x: 0, y: -10, text_align: CENTER, text: "", text_font: font_sel, text_color: {WORDMARK}, hidden: true }}
         - label: {{ id: lbl_sn_rec, align: CENTER, x: 0, y: 22, text_align: CENTER, text: "", text_font: font_artist, text_color: {WORDMARK}, hidden: true }}
         - button:
@@ -585,7 +630,6 @@ lvgl:
             on_click: [ lambda: 'id(g_sn_state) = 0;', script.execute: sn_screen ]
             widgets:
               - label: {{ align: CENTER, text: "Exit", text_font: font_med, text_color: 0xFFFFFF }}
-        # --- HOW TO PLAY (state 3): numbered badges + labels ---
         - label: {{ id: lbl_sn_howto_t, align: CENTER, y: -104, text: "HOW TO PLAY?", text_font: font_sel, text_color: {ACCENT}, hidden: true }}
         - obj: {{ id: sn_b1, align: CENTER, x: -96, y: -52, width: 24, height: 24, radius: 12, bg_color: {BADGE}, bg_opa: COVER, border_width: 0, pad_all: 0, hidden: true, widgets: [ label: {{ align: CENTER, text: "1", text_font: font_artist, text_color: 0xFFFFFF }} ] }}
         - obj: {{ id: sn_b2, align: CENTER, x: -96, y: -16, width: 24, height: 24, radius: 12, bg_color: {BADGE}, bg_opa: COVER, border_width: 0, pad_all: 0, hidden: true, widgets: [ label: {{ align: CENTER, text: "2", text_font: font_artist, text_color: 0xFFFFFF }} ] }}
@@ -595,11 +639,9 @@ lvgl:
         - label: {{ id: lbl_sn_howto2, align_to: {{ id: sn_b2, align: OUT_RIGHT_MID, x: 8 }}, text: "Eat fruit to grow", text_font: font_med, text_color: {TXT}, hidden: true }}
         - label: {{ id: lbl_sn_howto3, align_to: {{ id: sn_b3, align: OUT_RIGHT_MID, x: 8 }}, text: "Avoid the ring & tail", text_font: font_med, text_color: {TXT}, hidden: true }}
         - label: {{ id: lbl_sn_howto4, align_to: {{ id: sn_b4, align: OUT_RIGHT_MID, x: 8 }}, text: "Skulls kill - avoid!", text_font: font_med, text_color: {TXT}, hidden: true }}
-        # --- SCORES (state 4): top 10 in two columns ---
         - label: {{ id: lbl_sn_scores_t, align: CENTER, y: -116, text: "SCORES", text_font: font_sel, text_color: {ACCENT}, hidden: true }}
         - label: {{ id: lbl_sn_scores1, align: CENTER, x: -52, y: 0, text: "", text_align: LEFT, text_font: font_artist, text_color: {TXT}, hidden: true }}
         - label: {{ id: lbl_sn_scores2, align: CENTER, x: 56, y: 0, text: "", text_align: LEFT, text_font: font_artist, text_color: {TXT}, hidden: true }}
-        # --- Back (state 3/4 -> menu) ---
         - button:
             id: btn_sn_back
             align: CENTER
