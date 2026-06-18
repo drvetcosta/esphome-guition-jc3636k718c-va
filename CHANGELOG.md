@@ -3,6 +3,15 @@
 All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.1.4] - 2026-06-18
+
+### Added
+- **Snake screen** (optional). The classic on a 12x12 grid that fits the round display: turn the
+  knob to steer (a rotation is one quarter-turn, so you can never reverse into yourself), eat
+  apples to grow and score, and avoid the walls and your own tail. It speeds up as you score and
+  keeps a top-10 (with its own "Reset scores" under Settings -> Widgets -> Snake). Pick it in the
+  `files:` list and place it via `screen_order` like any other screen.
+
 ## [2.1.3] - 2026-06-17
 
 ### Added
