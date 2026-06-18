@@ -921,13 +921,11 @@ script:
             std::string day = (t.day_of_week >= 1 && t.day_of_week <= 7) ? std::string(d[t.day_of_week]) : std::string("");
             return t.strftime("%d %b") + "   " + day;
       - lvgl.label.update:
-          id: nf_stats
-          text: !lambda |-
-            char b[48]; std::string out;
-            if (id(room_temp).has_state()) { snprintf(b, sizeof(b), "%.1f\xC2\xB0", id(room_temp).state); out += b; }
-            if (id(room_hum).has_state()) { snprintf(b, sizeof(b), "   %d%%", (int) roundf(id(room_hum).state)); out += b; }
-            if (id(g_batt) >= 0) { snprintf(b, sizeof(b), "   %s%d%%", id(g_charging) ? "+" : "", id(g_batt)); out += b; }
-            return out;
+          id: nf_ct_val
+          text: !lambda 'if (!id(room_temp).has_state()) return std::string("--"); char b[12]; snprintf(b, sizeof(b), "%.1f\xC2\xB0", id(room_temp).state); return std::string(b);'
+      - lvgl.label.update:
+          id: nf_hum_val
+          text: !lambda 'if (!id(room_hum).has_state()) return std::string("--"); char b[8]; snprintf(b, sizeof(b), "%d%%", (int) roundf(id(room_hum).state)); return std::string(b);'
   # Rebuild the Home settings roller so its 3rd line shows the current watchface name.
   - id: home_roller_build
     then:
@@ -952,13 +950,16 @@ script:
             std::string ic = p > 87 ? "" : p > 62 ? "" : p > 37 ? "" : p > 12 ? "" : "";
             char bf[12]; snprintf(bf, sizeof(bf), " %d%%", p);
             return ic + bf;
+      - lambda: 'lv_label_set_text(id(nf_bt), lv_label_get_text(id(lbl_batt)));'   # mirror onto the Neon face
       - if:
           condition:
             lambda: 'return id(g_charging);'
           then:
             - lvgl.label.update: { id: lbl_batt, text_color: 0x35c759 }
+            - lvgl.label.update: { id: nf_bt, text_color: 0x35c759 }
           else:
             - lvgl.label.update: { id: lbl_batt, text_color: 0x6f9a92 }
+            - lvgl.label.update: { id: nf_bt, text_color: 0x6f9a92 }
   - id: flash_volume
     mode: restart
     then:
@@ -2302,7 +2303,7 @@ font:
   # Neon watchface: huge bold digits (only 0-9 needed, kept tiny in flash)
   - file: { type: gfonts, family: "Roboto", weight: 900 }
     id: font_neon
-    size: 118
+    size: 108
     glyphs: "0123456789"
   # Material Design icons (for the control tiles) - ESPHome downloads the TTF at compile time
   - file: "https://github.com/Templarian/MaterialDesign-Webfont/raw/v7.4.47/fonts/materialdesignicons-webfont.ttf"
@@ -2764,35 +2765,35 @@ lvgl:
             clickable: false
             hidden: true
             widgets:
-              - obj:   # faint outer neon ring at the rim
+              - obj:   # outer neon ring at the rim
                   id: nf_ring_out
                   align: CENTER
                   width: 352
                   height: 352
                   radius: 176
                   bg_opa: TRANSP
-                  border_width: 2
+                  border_width: 4
                   border_color: 0xFF2E88
-                  border_opa: 45%
+                  border_opa: 60%
                   clickable: false
                   scrollable: false
-              - obj:   # inner neon ring framing the digits
+              - obj:   # second neon ring, also hugging the rim (interior left free for content)
                   id: nf_ring_in
                   align: CENTER
-                  width: 300
-                  height: 300
-                  radius: 150
+                  width: 320
+                  height: 320
+                  radius: 160
                   bg_opa: TRANSP
-                  border_width: 2
+                  border_width: 4
                   border_color: 0x9A5BFF
-                  border_opa: 40%
+                  border_opa: 55%
                   clickable: false
                   scrollable: false
               - label:   # weather icon
                   id: nf_wx_ic
                   align: CENTER
                   x: -34
-                  y: -120
+                  y: -103
                   text: "󰖕"
                   text_font: icons34
                   text_color: 0xBFD2DA
@@ -2800,47 +2801,79 @@ lvgl:
                   id: nf_wx_temp
                   align: CENTER
                   x: 26
-                  y: -123
+                  y: -106
                   text: "--°"
                   text_font: font_sel
                   text_color: 0xFFFFFF
               - label:   # condition text (UPPERCASE)
                   id: nf_wx_cond
                   align: CENTER
-                  y: -90
+                  y: -76
                   text: ""
                   text_font: font_artist
                   text_color: 0x8A93A0
               - label:   # HOURS
                   id: nf_hh
                   align: CENTER
-                  x: -76
-                  y: -2
+                  x: -70
+                  y: -4
                   text: "00"
                   text_font: font_neon
                   text_color: 0xFF2E88
               - label:   # MINUTES
                   id: nf_mm
                   align: CENTER
-                  x: 76
-                  y: -2
+                  x: 70
+                  y: -4
                   text: "00"
                   text_font: font_neon
                   text_color: 0x9A5BFF
               - label:   # date
                   id: nf_date
                   align: CENTER
-                  y: 92
+                  y: 70
                   text: ""
                   text_font: font_med
                   text_color: 0x6f9a92
-              - label:   # stats: room temp · humidity · battery
-                  id: nf_stats
+              - label:   # room temperature icon
+                  id: nf_ct_ic
                   align: CENTER
-                  y: 122
-                  text: ""
+                  x: -60
+                  y: 99
+                  text: "󰔏"
+                  text_font: icons18
+                  text_color: 0xFF8A5C
+              - label:
+                  id: nf_ct_val
+                  align: CENTER
+                  x: -32
+                  y: 99
+                  text: "--"
                   text_font: font_artist
                   text_color: 0x9AA3B0
+              - label:   # room humidity icon
+                  id: nf_hum_ic
+                  align: CENTER
+                  x: 16
+                  y: 99
+                  text: "󰖎"
+                  text_font: icons18
+                  text_color: 0x3FA9D6
+              - label:
+                  id: nf_hum_val
+                  align: CENTER
+                  x: 42
+                  y: 99
+                  text: "--"
+                  text_font: font_artist
+                  text_color: 0x9AA3B0
+              - label:   # battery (glyph + %), driven by batt_render (montserrat = LVGL battery symbols)
+                  id: nf_bt
+                  align: CENTER
+                  y: 126
+                  text: ""
+                  text_font: montserrat_18
+                  text_color: 0x6f9a92
     - id: page_mode
       bg_color: 0x000000
       widgets:
