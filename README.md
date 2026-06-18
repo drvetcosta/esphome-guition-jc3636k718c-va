@@ -44,7 +44,7 @@ Everything is navigated with **swipes + taps on the screen** and the **rotary kn
 | <img src="assets/screens/home.png" width="170"> | **Home / Clock**<br>Time, date, battery (a bolt while charging), outdoor weather and room temperature + humidity. |
 | <img src="assets/screens/player.png" width="170"> | **Player**<br>Album art, title & artist, prev / play-pause / next and a progress bar. Auto-shows when playback starts. |
 | <img src="assets/screens/controls.png" width="170"> | **Control tiles** (swipe up)<br>Four configurable tiles toggling any HA entity; each has its own icon and label, and the colour follows the live on/off state. |
-| <img src="assets/screens/weather.png" width="170"> | **Weather**<br>Today plus a 7-day radial dial; turn the knob to scroll days. Centre shows the day, condition and high/low. |
+| <img src="assets/screens/weather.png" width="170"> | **Weather**<br>A 7-day dial; turn the knob to scroll days. Animated condition icon, colour-coded temperature, and a glow that slides to the selected day. |
 | <img src="assets/screens/thermostat.png" width="170"> | **Thermostat**<br>A dial for a `climate.*` entity; the knob sets the target, tap toggles on/off. Accent colour follows heating / cooling / idle. |
 | <img src="assets/screens/sensors.png" width="170"> | **Sensors**<br>A glance of 1-6 configurable Home Assistant entities, shown big one at a time; turn the knob to cycle (dots show the position). Any entity, pulled straight from HA. |
 | <img src="assets/screens/timer.png" width="170"> | **Timer**<br>Set by knob or voice; big countdown with a depleting ring, pause/stop, and an alarm when it finishes. |
@@ -107,6 +107,7 @@ assets/                    # fetched from GitHub at compile time (no need to cop
   sprites/cool-cars/       # "Cool Cars" game graphics
   sprites/space-wars/      # "Space Wars" game graphics
   sprites/snake/           # "Snake" menu logo
+  sprites/weather/         # animated weather icon frames
 scripts/
   make_sounds.py           # (re)generate the wav sounds
   esplog.py                # stream device logs over the native API

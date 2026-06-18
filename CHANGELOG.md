@@ -3,6 +3,15 @@
 All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.1.5] - 2026-06-18
+
+### Changed
+- Weather screen redesigned: animated condition icons, colour-coded temperature, and a glow that slides to the selected day.
+- Boot splash ring is now an azure comet instead of the rainbow.
+
+### Fixed
+- LED ring no longer flashes a stray pixel during screen transitions (RMT now uses DMA).
+
 ## [2.1.4] - 2026-06-18
 
 ### Added
