@@ -73,17 +73,17 @@ interval:
           then:
             - lambda: 'id(g_wf_req) = false;'
             - lvgl.page.show: { id: page_home_demo, animation: fade_in, time: 250ms }
-            - script.execute: demo_render
+            - script.execute: dwf_render
   # Refresh once a second while we are the active home face.
   - interval: 1s
     then:
       - if:
           condition: { lambda: 'return id(g_watchface) == 2 && id(g_base) == 0;' }  # >>> EDIT <<< id
-          then: [ script.execute: demo_render ]
+          then: [ script.execute: dwf_render ]
 
 # ── 5. RENDER: fill your widgets from core's data ─────────────────────────────
 script:
-  - id: demo_render                     # >>> EDIT <<< unique script id
+  - id: dwf_render                     # >>> EDIT <<< unique script id
     then:
       # Time - HH:MM (24h). Use "%I:%M %p" for 12-hour.
       - lvgl.label.update:
