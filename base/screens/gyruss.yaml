@@ -370,7 +370,7 @@ interval:
                 id(g_gy_hud_dirty) = false; id(g_gy_shipdirty) = false;
                 id(g_gy_tick)++;
                 int kd = id(g_knob_delta); id(g_knob_delta) = 0;
-                id(g_gy_ship_ang) += kd * 0.16f;
+                id(g_gy_ship_ang) += kd * 0.30f;   // aim sensitivity: ~17 deg per knob detent
                 // auto-fire a bullet down the ship's radial
                 if (++id(g_gy_fire_clk) >= 5) {
                   id(g_gy_fire_clk) = 0;
@@ -407,8 +407,9 @@ interval:
                   id(g_gy_sr)[k] += id(g_gy_sr)[k] * 0.10f + 2.0f;
                   if (id(g_gy_sr)[k] > 176.0f) { id(g_gy_sr)[k] = 4.0f + (esp_random() % 14); id(g_gy_sa)[k] = (esp_random() % 62832) / 10000.0f; }
                 }
-                // ship rotation frame (throttled to every 3rd tick - the swap forces a redraw; position stays 50ms)
-                if (id(g_gy_tick) % 3 == 0) {
+                // ship rotation frame (every 2nd tick, on the ODD ticks so it doesn't share a tick with
+                // the starfield move above - spreads the two throttled costs; position stays 50ms)
+                if ((id(g_gy_tick) & 1) == 1) {
                   int bk = (int) lroundf(id(g_gy_ship_ang) / 0.3926991f); bk %= 16; if (bk < 0) bk += 16;
                   id(g_gy_shipdirty) = (bk != id(g_gy_shipframe));
                   if (id(g_gy_shipdirty)) id(g_gy_shipframe) = bk;

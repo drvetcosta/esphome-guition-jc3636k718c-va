@@ -277,7 +277,7 @@ script:
   - id: game_start
     then:
       - lambda: |-
-          id(g_game_state) = 1; id(g_score) = 0; id(g_gspeed) = 11;
+          id(g_game_state) = 1; id(g_score) = 0; id(g_gspeed) = 7;
           id(g_car_lane) = 1; id(g_lives) = 3; id(g_inv) = 0;
           id(g_knob_capture) = true; id(g_knob_delta) = 0;
       - lvgl.widget.update: { id: car, x: -120 }
@@ -290,7 +290,7 @@ script:
       - script.execute: car_render
   - id: lose_life    # losing a life: red flash + invulnerability (blinking), 0 lives -> game over
     then:
-      - lambda: 'id(g_lives)--; id(g_inv) = 14;'
+      - lambda: 'id(g_lives)--; id(g_inv) = 22;'   # ~1.1s invulnerability (scaled for 50ms)
       - lvgl.widget.show: hit_flash
       - if:
           condition: { lambda: 'return id(g_lives) <= 0;' }
@@ -331,8 +331,9 @@ interval:
             - if: { condition: { lambda: 'return id(g_nav_anim)==2;' }, then: [lvgl.page.show: { id: page_game, animation: move_top,    time: 250ms }] }
             - if: { condition: { lambda: 'return id(g_nav_anim)==3;' }, then: [lvgl.page.show: { id: page_game, animation: move_bottom, time: 250ms }] }
             - script.execute: game_screen
-  # "Car" game (driving right) - tick only on the game screen during play
-  - interval: 80ms
+  # "Car" game (driving right) - tick only on the game screen during play.
+  # 50ms (20fps) so motion is smooth; speeds are scaled down to keep the same px/sec pace.
+  - interval: 50ms
     then:
       - if:
           condition:
@@ -349,7 +350,7 @@ interval:
                 id(g_o3_x) -= id(g_gspeed);
                 id(g_cn_x) -= id(g_gspeed);
                 if (id(g_inv) > 0) id(g_inv)--;
-                int sp = 11 + id(g_score) / 7; if (sp > 26) sp = 26; id(g_gspeed) = sp;   // faster
+                int sp = 7 + id(g_score) / 11; if (sp > 16) sp = 16; id(g_gspeed) = sp;   // ramps up (scaled for 50ms)
                 id(g_dash_off) = (id(g_dash_off) + id(g_gspeed)) % 360;
             # Recycle obstacles past the left edge (+ a point for dodging, score updated only on change)
             - if:
@@ -387,16 +388,20 @@ interval:
                 condition: { lambda: 'return id(g_inv) > 0;' }
                 then:
                   - lvgl.widget.update: { id: car, hidden: !lambda 'return (id(g_inv) % 4) >= 2;' }
-                  - lvgl.widget.update: { id: hit_flash, hidden: !lambda 'return id(g_inv) < 11;' }
-            # Update positions + scrolling dashes (4)
-            - lvgl.widget.update: { id: obs1, x: !lambda 'return id(g_o1_x);' }
-            - lvgl.widget.update: { id: obs2, x: !lambda 'return id(g_o2_x);' }
-            - lvgl.widget.update: { id: obs3, x: !lambda 'return id(g_o3_x);' }
-            - lvgl.widget.update: { id: coin, x: !lambda 'return id(g_cn_x);' }
-            - lvgl.widget.update: { id: dl0, x: !lambda 'return ((0*180 - id(g_dash_off))%360+360)%360 - 180;' }
-            - lvgl.widget.update: { id: dl1, x: !lambda 'return ((1*180 - id(g_dash_off))%360+360)%360 - 180;' }
-            - lvgl.widget.update: { id: db0, x: !lambda 'return ((0*180 - id(g_dash_off))%360+360)%360 - 180;' }
-            - lvgl.widget.update: { id: db1, x: !lambda 'return ((1*180 - id(g_dash_off))%360+360)%360 - 180;' }
+                  - lvgl.widget.update: { id: hit_flash, hidden: !lambda 'return id(g_inv) < 16;' }
+            # Move obstacles/coin/dashes in ONE lambda (lv_obj_align) instead of 8 widget.update
+            # actions - far less per-tick overhead (the pattern that keeps Snake/Knobuss smooth).
+            - lambda: |-
+                lv_obj_align(id(obs1), LV_ALIGN_CENTER, id(g_o1_x), (id(g_o1_lane) - 1) * 55);
+                lv_obj_align(id(obs2), LV_ALIGN_CENTER, id(g_o2_x), (id(g_o2_lane) - 1) * 55);
+                lv_obj_align(id(obs3), LV_ALIGN_CENTER, id(g_o3_x), (id(g_o3_lane) - 1) * 55);
+                lv_obj_align(id(coin), LV_ALIGN_CENTER, id(g_cn_x), (id(g_cn_lane) - 1) * 55);
+                int d0 = ((0   - id(g_dash_off)) % 360 + 360) % 360 - 180;
+                int d1 = ((180 - id(g_dash_off)) % 360 + 360) % 360 - 180;
+                lv_obj_align(id(dl0), LV_ALIGN_CENTER, d0, -28);
+                lv_obj_align(id(dl1), LV_ALIGN_CENTER, d1, -28);
+                lv_obj_align(id(db0), LV_ALIGN_CENTER, d0,  27);
+                lv_obj_align(id(db1), LV_ALIGN_CENTER, d1,  27);
 
 image:
   - id: img_road2
