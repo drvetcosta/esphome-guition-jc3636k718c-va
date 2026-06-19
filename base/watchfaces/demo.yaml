@@ -72,7 +72,11 @@ interval:
           condition: { lambda: 'return id(g_wf_req) && id(g_watchface) == 2;' }   # >>> EDIT <<< id
           then:
             - lambda: 'id(g_wf_req) = false;'
-            - lvgl.page.show: { id: page_home_demo, animation: fade_in, time: 250ms }
+            # slide in matching the carousel direction (like Classic / the screens) - no laggy fade
+            - if: { condition: { lambda: 'return id(g_nav_anim)==0;' }, then: [lvgl.page.show: { id: page_home_demo, animation: move_left,   time: 250ms }] }
+            - if: { condition: { lambda: 'return id(g_nav_anim)==1;' }, then: [lvgl.page.show: { id: page_home_demo, animation: move_right,  time: 250ms }] }
+            - if: { condition: { lambda: 'return id(g_nav_anim)==2;' }, then: [lvgl.page.show: { id: page_home_demo, animation: move_top,    time: 250ms }] }
+            - if: { condition: { lambda: 'return id(g_nav_anim)==3;' }, then: [lvgl.page.show: { id: page_home_demo, animation: move_bottom, time: 250ms }] }
             - script.execute: dwf_render
   # Refresh once a second while we are the active home face.
   - interval: 1s
