@@ -122,6 +122,13 @@ script:
                     d += (i == id(g_gl_sel)) ? "\U000f09de" : "\U000f09df";
                   }
                   return d;
+            # per-sensor accent (by slot): tints the icon + dots so each glance has its identity
+            - if: { condition: { lambda: 'return id(g_gl_sel)==0;' }, then: [ lvgl.label.update: { id: gl_icon, text_color: 0x35C759 }, lvgl.label.update: { id: gl_pos, text_color: 0x35C759 } ] }
+            - if: { condition: { lambda: 'return id(g_gl_sel)==1;' }, then: [ lvgl.label.update: { id: gl_icon, text_color: 0x3FA9D6 }, lvgl.label.update: { id: gl_pos, text_color: 0x3FA9D6 } ] }
+            - if: { condition: { lambda: 'return id(g_gl_sel)==2;' }, then: [ lvgl.label.update: { id: gl_icon, text_color: 0xF5B83D }, lvgl.label.update: { id: gl_pos, text_color: 0xF5B83D } ] }
+            - if: { condition: { lambda: 'return id(g_gl_sel)==3;' }, then: [ lvgl.label.update: { id: gl_icon, text_color: 0xA66BFF }, lvgl.label.update: { id: gl_pos, text_color: 0xA66BFF } ] }
+            - if: { condition: { lambda: 'return id(g_gl_sel)==4;' }, then: [ lvgl.label.update: { id: gl_icon, text_color: 0xFF6B60 }, lvgl.label.update: { id: gl_pos, text_color: 0xFF6B60 } ] }
+            - if: { condition: { lambda: 'return id(g_gl_sel)==5;' }, then: [ lvgl.label.update: { id: gl_icon, text_color: 0x2FE6CF }, lvgl.label.update: { id: gl_pos, text_color: 0x2FE6CF } ] }
 
 text_sensor:
   - platform: homeassistant
@@ -218,6 +225,18 @@ lvgl:
     - id: page_sensors
       bg_color: 0x000000
       widgets:
+        - obj:   # faint outer ring for depth (matches the other screens)
+            id: gl_ring_out
+            align: CENTER
+            width: 340
+            height: 340
+            radius: 170
+            bg_opa: TRANSP
+            border_width: 2
+            border_color: 0x1A1F2A
+            border_opa: 70%
+            clickable: false
+            scrollable: false
         - label: { id: gl_icon, align: CENTER, y: -70, text: "", text_font: icons34, text_color: 0xBFD2DA }
         - label: { id: gl_value, align: CENTER, y: -6, width: 320, text_align: CENTER, long_mode: clip, text: "--", text_font: montserrat_34, text_color: 0xFFFFFF }
         - label: { id: gl_name, align: CENTER, y: 40, width: 300, text_align: CENTER, long_mode: clip, text: "", text_font: font_med, text_color: 0x9FC7BE }
