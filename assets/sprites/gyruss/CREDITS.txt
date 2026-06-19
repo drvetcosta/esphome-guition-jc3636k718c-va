@@ -1,12 +1,15 @@
 Gyruss sprite credits
 =====================
 
-ship0..15.png, expl0..7.png
+ship0..15.png, life.png, expl0..7.png
   Derived from the "Lunar Lander" asset pack by Matt Walkden
   (mattwalkden.itch.io / mattwalkden.com), released into the Public Domain
   under the Creative Commons CC0 dedication. No attribution required; credited
-  here with thanks. Ship sprite pre-rotated into 16 frames; explosion sliced
-  from the 8-frame sheet.
+  here with thanks. Ship sprite pre-rotated into 16 frames (+ an upright life
+  icon); explosion sliced from the 8-frame sheet.
+
+knobuss-logo.png (menu title screen)
+  "KNOBUSS by Zan" - made by the project owner (Zan).
 
 core.png (black-hole portal), enemy0..3.png (glowing orbs)
   Cropped/scaled from a "celestial objects" pixel-art set. Used with the

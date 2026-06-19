@@ -17,7 +17,7 @@ esphome:
       then:
         - lambda: |-
             int g = id(g_wgrp_n)++;
-            id(g_wgrp_labels) += (g ? "\n" : ""); id(g_wgrp_labels) += "Gyruss";
+            id(g_wgrp_labels) += (g ? "\n" : ""); id(g_wgrp_labels) += "Knobuss";
             int o = id(g_wopt_n)++;
             id(g_wopt_group)[o] = g; id(g_wopt_label)[o] = "Reset scores"; id(g_wopt_kind)[o] = 1; id(g_wopt_ptr)[o] = &id(g_gy_reset);
 
@@ -114,6 +114,10 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  - id: g_gy_tick      # frame counter (throttles the starfield + ship-sprite refresh)
+    type: int
+    restore_value: no
+    initial_value: '0'
 
 script:
   # position every active widget from the float arrays (constant cost, one shallow lambda)
@@ -122,8 +126,8 @@ script:
       - lambda: |-
           const float R = 148.0f;
           // starfield (background depth) - small dots rushing outward
-          lv_obj_t *SF[10] = { id(gy_s0), id(gy_s1), id(gy_s2), id(gy_s3), id(gy_s4), id(gy_s5), id(gy_s6), id(gy_s7), id(gy_s8), id(gy_s9) };
-          for (int k = 0; k < 10; k++) {
+          lv_obj_t *SF[6] = { id(gy_s0), id(gy_s1), id(gy_s2), id(gy_s3), id(gy_s4), id(gy_s5) };
+          for (int k = 0; k < 6; k++) {
             float r = id(g_gy_sr)[k], a = id(g_gy_sa)[k];
             lv_obj_set_pos(SF[k], 180 + (int) lroundf(cosf(a) * r) - 1, 180 + (int) lroundf(sinf(a) * r) - 1);
           }
@@ -142,7 +146,7 @@ script:
             } else lv_obj_set_pos(EE[k], 400, 400);
           }
           float sa = id(g_gy_ship_ang);
-          lv_obj_set_pos(id(gy_ship), 180 + (int) lroundf(cosf(sa) * R) - 20, 180 + (int) lroundf(sinf(sa) * R) - 20);
+          lv_obj_set_pos(id(gy_ship), 180 + (int) lroundf(cosf(sa) * R) - 18, 180 + (int) lroundf(sinf(sa) * R) - 18);
           // explosions (32px sprites) - positioned while alive, parked otherwise
           lv_obj_t *XX[2] = { id(gy_x0), id(gy_x1) };
           for (int s = 0; s < 2; s++) {
@@ -209,8 +213,8 @@ script:
           for (int k = 0; k < 6; k++) lv_obj_set_pos(BB[k], 400, 400);
           lv_obj_t *EE[10] = { id(gy_e0), id(gy_e1), id(gy_e2), id(gy_e3), id(gy_e4), id(gy_e5), id(gy_e6), id(gy_e7), id(gy_e8), id(gy_e9) };
           for (int k = 0; k < 10; k++) lv_obj_set_pos(EE[k], 400, 400);
-          lv_obj_t *SF[10] = { id(gy_s0), id(gy_s1), id(gy_s2), id(gy_s3), id(gy_s4), id(gy_s5), id(gy_s6), id(gy_s7), id(gy_s8), id(gy_s9) };
-          for (int k = 0; k < 10; k++) lv_obj_set_pos(SF[k], 400, 400);
+          lv_obj_t *SF[6] = { id(gy_s0), id(gy_s1), id(gy_s2), id(gy_s3), id(gy_s4), id(gy_s5) };
+          for (int k = 0; k < 6; k++) lv_obj_set_pos(SF[k], 400, 400);
           lv_obj_set_pos(id(gy_ship), 400, 400);
       - lvgl.widget.hide: gy_x0
       - lvgl.widget.hide: gy_x1
@@ -222,7 +226,7 @@ script:
           id(g_gy_fire_clk) = 0; id(g_gy_spawn_clk) = 0;
           for (int k = 0; k < 6; k++) id(g_gy_bon)[k] = false;
           for (int k = 0; k < 10; k++) id(g_gy_eon)[k] = false;
-          for (int k = 0; k < 10; k++) { id(g_gy_sr)[k] = 6.0f + (esp_random() % 168); id(g_gy_sa)[k] = (esp_random() % 62832) / 10000.0f; }
+          for (int k = 0; k < 6; k++) { id(g_gy_sr)[k] = 6.0f + (esp_random() % 168); id(g_gy_sa)[k] = (esp_random() % 62832) / 10000.0f; }
           for (int s = 0; s < 2; s++) id(g_gy_exage)[s] = -1;
           id(g_gy_shipframe) = -1;   // force a ship-sprite refresh on the first tick
           id(g_knob_capture) = true; id(g_knob_delta) = 0;
@@ -247,6 +251,7 @@ script:
     then:
       - lambda: 'id(g_knob_capture) = (id(g_gy_state) == 1 || id(g_gy_state) == 2);'
       - script.execute: gy_clear
+      - lvgl.widget.hide: gy_logo
       - lvgl.widget.hide: gy_ring
       - lvgl.widget.hide: gy_ring2
       - lvgl.widget.hide: gy_ring3
@@ -271,6 +276,7 @@ script:
       - lvgl.widget.hide: lbl_gy_howto2
       - lvgl.widget.hide: lbl_gy_howto3
       - lvgl.widget.hide: lbl_gy_howto4
+      - lvgl.widget.hide: gy_life_icon
       - lvgl.widget.hide: lbl_gy_scores_t
       - lvgl.widget.hide: lbl_gy_scores1
       - lvgl.widget.hide: lbl_gy_scores2
@@ -278,8 +284,7 @@ script:
       - if:   # MENU
           condition: { lambda: 'return id(g_gy_state) == 0;' }
           then:
-            - lvgl.widget.show: lbl_gy_title
-            - lvgl.widget.show: lbl_gy_sub
+            - lvgl.widget.show: gy_logo
             - lvgl.widget.show: btn_gy_start
             - lvgl.widget.show: btn_gy_howto
             - lvgl.widget.show: btn_gy_scores
@@ -315,6 +320,7 @@ script:
             - lvgl.widget.show: lbl_gy_howto2
             - lvgl.widget.show: lbl_gy_howto3
             - lvgl.widget.show: lbl_gy_howto4
+            - lvgl.widget.show: gy_life_icon
             - lvgl.widget.show: btn_gy_back
       - if:   # SCORES (top 10)
           condition: { lambda: 'return id(g_gy_state) == 4;' }
@@ -361,7 +367,8 @@ interval:
           condition: { lambda: 'return id(g_base) == 10 && id(g_gy_state) == 1;' }
           then:
             - lambda: |-
-                id(g_gy_hud_dirty) = false;
+                id(g_gy_hud_dirty) = false; id(g_gy_shipdirty) = false;
+                id(g_gy_tick)++;
                 int kd = id(g_knob_delta); id(g_knob_delta) = 0;
                 id(g_gy_ship_ang) += kd * 0.16f;
                 // auto-fire a bullet down the ship's radial
@@ -376,7 +383,7 @@ interval:
                   id(g_gy_spawn_clk) = 0;
                   for (int k = 0; k < 10; k++) if (!id(g_gy_eon)[k]) {
                     float a = (esp_random() % 62832) / 10000.0f;
-                    id(g_gy_eon)[k] = true; id(g_gy_er)[k] = 18.0f; id(g_gy_ea)[k] = a; break;
+                    id(g_gy_eon)[k] = true; id(g_gy_er)[k] = 32.0f; id(g_gy_ea)[k] = a; break;   // start at the core's rim (not under it) to avoid central overdraw
                   }
                 }
                 // age existing explosions first (8-frame sprite); refresh sprite while any is live/expiring
@@ -395,15 +402,17 @@ interval:
                     for (int s = 0; s < 2; s++) if (id(g_gy_exage)[s] < 0) { id(g_gy_exx)[s] = cosf(id(g_gy_ea)[k]) * 146.0f; id(g_gy_exy)[s] = sinf(id(g_gy_ea)[k]) * 146.0f; id(g_gy_exage)[s] = 0; id(g_gy_exact) = true; break; }
                   }
                 }
-                // depth starfield: rush outward (accelerating = perspective), respawn near the centre
-                for (int k = 0; k < 10; k++) {
-                  id(g_gy_sr)[k] += id(g_gy_sr)[k] * 0.05f + 1.0f;
+                // depth starfield (throttled to every 2nd tick): rush outward, respawn near the centre
+                if ((id(g_gy_tick) & 1) == 0) for (int k = 0; k < 6; k++) {
+                  id(g_gy_sr)[k] += id(g_gy_sr)[k] * 0.10f + 2.0f;
                   if (id(g_gy_sr)[k] > 176.0f) { id(g_gy_sr)[k] = 4.0f + (esp_random() % 14); id(g_gy_sa)[k] = (esp_random() % 62832) / 10000.0f; }
                 }
-                // pick the ship rotation frame from the orbit angle (16 buckets); refresh only on change
-                int bk = (int) lroundf(id(g_gy_ship_ang) / 0.3926991f); bk %= 16; if (bk < 0) bk += 16;
-                id(g_gy_shipdirty) = (bk != id(g_gy_shipframe));
-                if (id(g_gy_shipdirty)) id(g_gy_shipframe) = bk;
+                // ship rotation frame (throttled to every 3rd tick - the swap forces a redraw; position stays 50ms)
+                if (id(g_gy_tick) % 3 == 0) {
+                  int bk = (int) lroundf(id(g_gy_ship_ang) / 0.3926991f); bk %= 16; if (bk < 0) bk += 16;
+                  id(g_gy_shipdirty) = (bk != id(g_gy_shipframe));
+                  if (id(g_gy_shipdirty)) id(g_gy_shipframe) = bk;
+                }
                 // bullet vs foe (polar proximity)
                 for (int b = 0; b < 6; b++) if (id(g_gy_bon)[b]) for (int e = 0; e < 10; e++) if (id(g_gy_eon)[e]) {
                   float dr = id(g_gy_br)[b] - id(g_gy_er)[e]; if (dr < 0) dr = -dr;
@@ -548,6 +557,13 @@ image:
     file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/core.png"
     type: RGB565
     transparency: alpha_channel
+  - id: img_gy_logo
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/knobuss-logo.png"
+    type: RGB565
+  - id: img_gy_life
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/life.png"
+    type: RGB565
+    transparency: alpha_channel
 lvgl:
   pages:
     - id: page_gyruss
@@ -555,6 +571,8 @@ lvgl:
       scrollbar_mode: "off"
       scrollable: false
       widgets:
+        # Knobuss title screen (full-screen menu backdrop, behind the buttons) - hidden in play
+        - image: { id: gy_logo, align: CENTER, x: 0, y: 0, src: img_gy_logo, hidden: true }
         # starfield (declared first = drawn behind everything) - parked until play
         - obj: { id: gy_s0, x: 400, y: 400, width: 3, height: 3, radius: 999, bg_color: 0x6076A4, bg_opa: COVER, border_width: 0, pad_all: 0 }
         - obj: { id: gy_s1, x: 400, y: 400, width: 2, height: 2, radius: 999, bg_color: 0x32466E, bg_opa: COVER, border_width: 0, pad_all: 0 }
@@ -562,10 +580,6 @@ lvgl:
         - obj: { id: gy_s3, x: 400, y: 400, width: 2, height: 2, radius: 999, bg_color: 0x32466E, bg_opa: COVER, border_width: 0, pad_all: 0 }
         - obj: { id: gy_s4, x: 400, y: 400, width: 3, height: 3, radius: 999, bg_color: 0x6076A4, bg_opa: COVER, border_width: 0, pad_all: 0 }
         - obj: { id: gy_s5, x: 400, y: 400, width: 2, height: 2, radius: 999, bg_color: 0x32466E, bg_opa: COVER, border_width: 0, pad_all: 0 }
-        - obj: { id: gy_s6, x: 400, y: 400, width: 3, height: 3, radius: 999, bg_color: 0x6076A4, bg_opa: COVER, border_width: 0, pad_all: 0 }
-        - obj: { id: gy_s7, x: 400, y: 400, width: 2, height: 2, radius: 999, bg_color: 0x32466E, bg_opa: COVER, border_width: 0, pad_all: 0 }
-        - obj: { id: gy_s8, x: 400, y: 400, width: 3, height: 3, radius: 999, bg_color: 0x6076A4, bg_opa: COVER, border_width: 0, pad_all: 0 }
-        - obj: { id: gy_s9, x: 400, y: 400, width: 2, height: 2, radius: 999, bg_color: 0x32466E, bg_opa: COVER, border_width: 0, pad_all: 0 }
         # concentric guide rings (static) suggest a tube receding to the core - free depth cue
         - obj: { id: gy_ring3, align: CENTER, x: 0, y: 0, width: 112, height: 112, radius: 56, bg_opa: TRANSP, border_width: 1, border_color: 0x1A2742, hidden: true }
         - obj: { id: gy_ring2, align: CENTER, x: 0, y: 0, width: 200, height: 200, radius: 100, bg_opa: TRANSP, border_width: 1, border_color: 0x1E2C4A, hidden: true }
@@ -594,12 +608,12 @@ lvgl:
         - image: { id: gy_x1, x: 400, y: 400, src: img_gy_expl0, hidden: true }
         - label: { id: lbl_gy_score, align: CENTER, x: 0, y: -150, text: "0", text_font: font_med, text_color: 0xCFE4FF, hidden: true }
         - label: { id: lbl_gy_lives, align: CENTER, x: 0, y: 150, text: "LIVES  3", text_font: font_artist, text_color: 0xFF7A6A, hidden: true }
-        - label: { id: lbl_gy_title, align: CENTER, x: 0, y: -86, text: "GYRUSS", text_font: font_sel, text_color: 0x46E3D0, hidden: true }
+        - label: { id: lbl_gy_title, align: CENTER, x: 0, y: -86, text: "KNOBUSS", text_font: font_sel, text_color: 0x46E3D0, hidden: true }
         - label: { id: lbl_gy_sub, align: CENTER, x: 0, y: -52, text: "tube shooter", text_font: font_artist, text_color: 0x6B7BA6, hidden: true }
         - button:
             id: btn_gy_start
             align: CENTER
-            y: 4
+            y: -8
             width: 150
             height: 44
             radius: 22
@@ -612,7 +626,7 @@ lvgl:
         - button:
             id: btn_gy_howto
             align: CENTER
-            y: 54
+            y: 40
             width: 150
             height: 44
             radius: 22
@@ -625,7 +639,7 @@ lvgl:
         - button:
             id: btn_gy_scores
             align: CENTER
-            y: 104
+            y: 88
             width: 150
             height: 44
             radius: 22
@@ -671,11 +685,12 @@ lvgl:
         - obj: { id: gy_hb1, align: CENTER, x: -96, y: -52, width: 24, height: 24, radius: 12, bg_color: 0x2C6FB2, bg_opa: COVER, border_width: 0, pad_all: 0, hidden: true, widgets: [ label: { align: CENTER, text: "1", text_font: font_artist, text_color: 0xFFFFFF } ] }
         - obj: { id: gy_hb2, align: CENTER, x: -96, y: -16, width: 24, height: 24, radius: 12, bg_color: 0x2C6FB2, bg_opa: COVER, border_width: 0, pad_all: 0, hidden: true, widgets: [ label: { align: CENTER, text: "2", text_font: font_artist, text_color: 0xFFFFFF } ] }
         - obj: { id: gy_hb3, align: CENTER, x: -96, y: 20, width: 24, height: 24, radius: 12, bg_color: 0x2C6FB2, bg_opa: COVER, border_width: 0, pad_all: 0, hidden: true, widgets: [ label: { align: CENTER, text: "3", text_font: font_artist, text_color: 0xFFFFFF } ] }
-        - obj: { id: gy_hb4, align: CENTER, x: -96, y: 56, width: 24, height: 24, radius: 12, bg_color: 0xE0584A, bg_opa: COVER, border_width: 0, pad_all: 0, hidden: true, widgets: [ label: { align: CENTER, text: "!", text_font: font_artist, text_color: 0xFFFFFF } ] }
+        - obj: { id: gy_hb4, align: CENTER, x: -96, y: 56, width: 24, height: 24, radius: 12, bg_color: 0x2C6FB2, bg_opa: COVER, border_width: 0, pad_all: 0, hidden: true, widgets: [ label: { align: CENTER, text: "4", text_font: font_artist, text_color: 0xFFFFFF } ] }
         - label: { id: lbl_gy_howto1, align_to: { id: gy_hb1, align: OUT_RIGHT_MID, x: 8 }, text: "Turn knob to aim", text_font: font_med, text_color: 0xC4D2F0, hidden: true }
         - label: { id: lbl_gy_howto2, align_to: { id: gy_hb2, align: OUT_RIGHT_MID, x: 8 }, text: "You auto-fire inward", text_font: font_med, text_color: 0xC4D2F0, hidden: true }
         - label: { id: lbl_gy_howto3, align_to: { id: gy_hb3, align: OUT_RIGHT_MID, x: 8 }, text: "Blast foes before the rim", text_font: font_med, text_color: 0xC4D2F0, hidden: true }
-        - label: { id: lbl_gy_howto4, align_to: { id: gy_hb4, align: OUT_RIGHT_MID, x: 8 }, text: "Each that reaches the rim costs a life", text_font: font_med, text_color: 0xC4D2F0, hidden: true }
+        - label: { id: lbl_gy_howto4, align_to: { id: gy_hb4, align: OUT_RIGHT_MID, x: 8 }, text: "You have three lives", text_font: font_med, text_color: 0xC4D2F0, hidden: true }
+        - image: { id: gy_life_icon, align_to: { id: lbl_gy_howto4, align: OUT_RIGHT_MID, x: 8 }, src: img_gy_life, hidden: true }
         - label: { id: lbl_gy_scores_t, align: CENTER, y: -116, text: "SCORES", text_font: font_sel, text_color: 0x46E3D0, hidden: true }
         - label: { id: lbl_gy_scores1, align: CENTER, x: -52, y: 0, text: "", text_align: LEFT, text_font: font_artist, text_color: 0xC4D2F0, hidden: true }
         - label: { id: lbl_gy_scores2, align: CENTER, x: 56, y: 0, text: "", text_align: LEFT, text_font: font_artist, text_color: 0xC4D2F0, hidden: true }
