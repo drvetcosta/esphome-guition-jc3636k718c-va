@@ -33,7 +33,7 @@ It started as "my kid needs a physical timer" and turned into a whole puck. 🙂
   any `climate` entity, and a configurable multi-sensor glance.
 - **LED ring** - controllable from HA *and* reactive: assistant (comet/spinner/wave),
   timer countdown, alarm flash, volume bar - each reaction toggleable in Settings.
-- **Two built-in arcade games** (a lane racer and a vertical shooter) for the kid.
+- **Four built-in arcade games** (a lane racer, a vertical shooter, a 360-degree snake and a Gyruss-style tube shooter) for the kid.
 
 Everything is navigated with **swipes + taps on the screen** and the **rotary knob**.
 
@@ -113,16 +113,22 @@ base/                      # pulled as a remote package at compile time (no need
     weather.ha-helper.yaml #   HA template sensor that feeds the weather screen
   watchfaces/              # optional home-screen looks (Classic is built into core)
     neon.yaml              #   "Neon" watchface - big two-tone digits + neon rings
+    minecraft.yaml         #   "Minecraft" watchface - blocky day/night scene + pixel clock
+    demo.yaml              #   "Demo" watchface - minimal, heavily-commented template to copy
 assets/                    # fetched from GitHub at compile time (no need to copy locally)
   header.jpg               # banner
+  fonts/pixel-font.ttf     # pixel font (Minecraft watchface)
   sounds/                  # wake.wav + alarm.wav
   sprites/cool-cars/       # "Cool Cars" game graphics
   sprites/space-wars/      # "Space Wars" game graphics
   sprites/knobuss/         # "Knobuss" game graphics (ship/foes/explosion/core/logo)
   sprites/snake/           # "Snake" menu logo
+  sprites/minecraft/       # "Minecraft" watchface graphics (sun/moon/ground/flower)
   sprites/weather/         # animated weather icon frames
 scripts/
   make_sounds.py           # (re)generate the wav sounds
+  gen_weather.py           # (re)generate the animated weather icon frames
+  gen_snake.py             # (re)generate the snake sprites
   esplog.py                # stream device logs over the native API
 skill/                     # Claude Code skill: hardware spec + gotchas
 ```
