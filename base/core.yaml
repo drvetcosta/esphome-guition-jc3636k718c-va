@@ -304,12 +304,12 @@ time:
 # DAC:  BCK=39  WS=40  DO=41   (no MCK)   MUTE=46 (LOW=mute -> we hold HIGH)
 # MIC:  data(SD)=46  clk(SCK)=45  -> configured as PDM
 ###############################################################################
-switch:
-  - platform: gpio
-    pin: GPIO46
-    name: "DAC unmute"
-    id: dac_unmute
-    restore_mode: ALWAYS_ON   # HIGH = not muted
+#switch:
+#  - platform: gpio
+#    pin: GPIO46
+#    name: "DAC unmute"
+#    id: dac_unmute
+#    restore_mode: ALWAYS_ON   # HIGH = not muted
 
 i2s_audio:
   - id: i2s_out            # DAC PCM5100A
