@@ -275,7 +275,7 @@ esp32:
 
 psram:
   mode: octal
-  speed: 80MHz
+
 
 logger:
   level: INFO   # less logging = less overhead (DEBUG was very noisy, esp. during VA)
@@ -1512,11 +1512,12 @@ binary_sensor:
   #    two-independent-pulses approach may misread direction / double-count here.
   #    If volume control is erratic on real hardware, switch to a `sensor: rotary_encoder`
   #    (pin_a=8, pin_b=7) feeding the same volume up/down actions. UNVERIFIED.
+  #    Actually it's inverted
   - platform: gpio
     name: "Knob left"
     id: knob_left
     pin:
-      number: GPIO8
+      number: GPIO7
       inverted: true
       mode:
         input: true
@@ -1585,7 +1586,7 @@ binary_sensor:
     name: "Knob right"
     id: knob_right
     pin:
-      number: GPIO7
+      number: GPIO8
       inverted: true
       mode:
         input: true
