@@ -2201,7 +2201,7 @@ display:
     dimensions:
       height: 360
       width: 360
-    cs_pin: 12
+    cs_pin: 14
     reset_pin: GPIO21
     # show_test_card: true   # (disabled - LVGL draws now)
     init_sequence:
