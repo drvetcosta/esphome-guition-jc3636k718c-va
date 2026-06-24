@@ -309,11 +309,6 @@ time:
 #    name: "DAC unmute"
 #    id: dac_unmute
 #    restore_mode: ALWAYS_ON   # HIGH = not muted
-  - platform: gpio
-    pin: GPIO0
-    name: "I2S switch (to DAC)"
-    id: i2s_switch
-    restore_mode: ALWAYS_ON
 i2s_audio:
   - id: i2s_out            # DAC PCM5100A
     i2s_bclk_pin: GPIO39
