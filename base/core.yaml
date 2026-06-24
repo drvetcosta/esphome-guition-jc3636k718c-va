@@ -2191,7 +2191,7 @@ touchscreen:
                 - script.execute: ui_render
 
 display:
-  - platform: qspi_dbi
+  - platform: mipi_spi
     model: CUSTOM
     data_rate: 80MHz
     id: main_display
