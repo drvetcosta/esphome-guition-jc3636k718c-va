@@ -306,7 +306,7 @@ time:
 ###############################################################################
 switch:
   - platform: gpio
-    pin: 
+    pin: GPIO46
     name: "DAC unmute"
     id: dac_unmute
     restore_mode: ALWAYS_ON   # HIGH = not muted
