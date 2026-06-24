@@ -309,7 +309,11 @@ time:
 #    name: "DAC unmute"
 #    id: dac_unmute
 #    restore_mode: ALWAYS_ON   # HIGH = not muted
-
+  - platform: gpio
+    pin: GPIO0
+    name: "I2S switch (to DAC)"
+    id: i2s_switch
+    restore_mode: ALWAYS_ON
 i2s_audio:
   - id: i2s_out            # DAC PCM5100A
     i2s_bclk_pin: GPIO39
@@ -361,7 +365,7 @@ microphone:
     i2s_audio_id: i2s_in
     i2s_din_pin: GPIO46
     adc_type: external
-    pdm: false
+    pdm: true
     sample_rate: 16000
     bits_per_sample: 16bit
 
@@ -1535,7 +1539,7 @@ binary_sensor:
     name: "Knob left"
     id: knob_left
     pin:
-      number: GPIO8
+      number: GPIO7
       inverted: true
       mode:
         input: true
@@ -1604,7 +1608,7 @@ binary_sensor:
     name: "Knob right"
     id: knob_right
     pin:
-      number: GPIO7
+      number: GPIO8
       inverted: true
       mode:
         input: true
