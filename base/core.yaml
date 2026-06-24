@@ -1814,8 +1814,8 @@ button:
 touchscreen:
   platform: cst816
   id: my_touchscreen
-  interrupt_pin: GPIO9
-  reset_pin: GPIO10
+  interrupt_pin: GPIO7
+  reset_pin: GPIO8
   display: main_display
   on_touch:
     - lambda: |-
