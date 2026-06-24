@@ -301,29 +301,29 @@ time:
 
 ###############################################################################
 # AUDIO - DAC PCM5100A (out) + microphone + voice assistant (HA Assist)
-# DAC:  BCK=3  WS=45  DO=42   (no MCK)   MUTE=46 (LOW=mute -> we hold HIGH)
-# MIC:  data(SD)=4  clk(SCK)=5  -> configured as PDM
+# DAC:  BCK=39  WS=40  DO=41   (no MCK)   MUTE=46 (LOW=mute -> we hold HIGH)
+# MIC:  data(SD)=46  clk(SCK)=45  -> configured as PDM
 ###############################################################################
 switch:
   - platform: gpio
-    pin: GPIO46
+    pin: 
     name: "DAC unmute"
     id: dac_unmute
     restore_mode: ALWAYS_ON   # HIGH = not muted
 
 i2s_audio:
   - id: i2s_out            # DAC PCM5100A
-    i2s_bclk_pin: GPIO3
+    i2s_bclk_pin: GPIO39
+    i2s_lrclk_pin: GPIO40
+  - id: i2s_in             # PDM microphone: clock=GPIO45
     i2s_lrclk_pin: GPIO45
-  - id: i2s_in             # PDM microphone: clock=GPIO5
-    i2s_lrclk_pin: GPIO5
 
 speaker:
   # Raw I2S output to the DAC
   - platform: i2s_audio
     id: i2s_speaker_raw
     i2s_audio_id: i2s_out
-    i2s_dout_pin: GPIO42
+    i2s_dout_pin: GPIO41
     dac_type: external
     channel: stereo
   # Mixer: combines the music channel and the announcement (TTS) channel on one speaker
@@ -360,7 +360,7 @@ microphone:
   - platform: i2s_audio
     id: i2s_microphone
     i2s_audio_id: i2s_in
-    i2s_din_pin: GPIO4
+    i2s_din_pin: GPIO46
     adc_type: external
     pdm: true
     sample_rate: 16000
@@ -484,7 +484,7 @@ micro_wake_word:
 # ──────────────────────────────────────────────────────────────────────────
 # We DON'T USE rotary_encoder: diagnostics (esplog.py logs) showed this knob
 # does NOT produce interleaved A/B quadrature - direction is encoded by WHICH pin pulses
-# (left=GPIO2, right=GPIO1). That's why the PCNT-based rotary_encoder counted zero.
+# (left=GPIO8, right=GPIO7). That's why the PCNT-based rotary_encoder counted zero.
 # The block below is kept as reference (in case a real
 # quadrature encoder ever shows up). See binary_sensor: knob_left / knob_right.
 # ──────────────────────────────────────────────────────────────────────────
@@ -493,12 +493,12 @@ micro_wake_word:
 #     name: "Knob"
 #     id: knob
 #     pin_a:
-#       number: GPIO2
+#       number: GPIO8
 #       mode:
 #         input: true
 #         pullup: true
 #     pin_b:
-#       number: GPIO1
+#       number: GPIO7
 #       mode:
 #         input: true
 #         pullup: true
@@ -1476,9 +1476,9 @@ sensor:
       - lvgl.label.update:
           id: lbl_ch_val
           text: !lambda 'char b[8]; snprintf(b, sizeof(b), "%d%%", (int) roundf(x)); return std::string(b);'
-  # Battery: ADC on GPIO6 (BAT_ADC, ~10k/10k divider -> x2). PIN/RATIO to verify live.
+  # Battery: ADC on GPIO1 (BAT_ADC, ~10k/10k divider -> x2). PIN/RATIO to verify live.
   - platform: adc
-    pin: GPIO6
+    pin: GPIO1
     id: batt_volt
     name: "Battery voltage"
     attenuation: 12db
@@ -1527,8 +1527,8 @@ sensor:
 binary_sensor:
   # ── KNOB: this "encoder" is NOT classic quadrature. Confirmed by logs:
   #    direction is encoded by WHICH pin pulses (not A/B phase):
-  #      • LEFT  → GPIO2 pulses  → quieter
-  #      • RIGHT → GPIO1 pulses  → louder
+  #      • LEFT  → GPIO8 pulses  → quieter
+  #      • RIGHT → GPIO7 pulses  → louder
   #    Each detent = one clean LOW pulse (sequence 0101...), zero bounce.
   #    That's why rotary_encoder (expects interleaved A/B) counted zero.
   #    So we read two independent pulses: inverted+pullup → detent = "on_press".
@@ -1536,7 +1536,7 @@ binary_sensor:
     name: "Knob left"
     id: knob_left
     pin:
-      number: GPIO2
+      number: GPIO8
       inverted: true
       mode:
         input: true
@@ -1605,7 +1605,7 @@ binary_sensor:
     name: "Knob right"
     id: knob_right
     pin:
-      number: GPIO1
+      number: GPIO7
       inverted: true
       mode:
         input: true
@@ -1673,23 +1673,23 @@ binary_sensor:
 
 ###############################################################################
 # DISPLAY (QSPI ST77916) + BACKLIGHT + TOUCH (CST816)
-# Pins: SCK=11 CS=12 D0=13 D1=14 D2=15 D3=16 RST=17 BLK=21
-#       TOUCH SDA=9 SCL=10 INT=7 RST=8
+# Pins: SCK=13 CS=14 D0=15 D1=16 D2=17 D3=18 RST=21 BLK=47
+#       TOUCH SDA=11 SCL=12 INT=9 RST=10
 ###############################################################################
 spi:
   id: display_qspi
   type: quad
-  clk_pin: 11
-  data_pins: [13, 14, 15, 16]
+  clk_pin: 13
+  data_pins: [15, 16, 17, 18]
 
 i2c:
-  sda: 9
-  scl: 10
+  sda: 11
+  scl: 12
   id: touchscreen_bus
 
 output:
   - platform: ledc
-    pin: GPIO21
+    pin: GPIO47
     id: backlight_output
 
 light:
@@ -1814,8 +1814,8 @@ button:
 touchscreen:
   platform: cst816
   id: my_touchscreen
-  interrupt_pin: GPIO7
-  reset_pin: GPIO8
+  interrupt_pin: GPIO9
+  reset_pin: GPIO10
   display: main_display
   on_touch:
     - lambda: |-
@@ -2202,7 +2202,7 @@ display:
       height: 360
       width: 360
     cs_pin: 12
-    reset_pin: GPIO17
+    reset_pin: GPIO21
     # show_test_card: true   # (disabled - LVGL draws now)
     init_sequence:
       - [ 0xF0, 0x28 ]
